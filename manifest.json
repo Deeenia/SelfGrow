@@ -1,0 +1,9 @@
+{
+  "id": "selfgrow",
+  "name": "SelfGrow",
+  "version": "0.1.0",
+  "minAppVersion": "1.13.0",
+  "description": "Turns shared URLs into organized local knowledge notes.",
+  "author": "SelfGrow",
+  "isDesktopOnly": false
+}

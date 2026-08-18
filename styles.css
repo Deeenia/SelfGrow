@@ -1,0 +1,744 @@
+.setting-item.selfgrow-settings-host {
+  display: block;
+  padding: 0;
+}
+
+.selfgrow-settings-host > .setting-item {
+  width: 100%;
+}
+
+.selfgrow-inbox {
+  margin: 0 auto;
+  max-width: 800px;
+  padding: clamp(var(--size-4-4), 4vw, var(--size-4-8));
+}
+
+.selfgrow-inbox-header {
+  border-bottom: 1px solid var(--background-modifier-border);
+  margin-bottom: var(--size-4-6);
+}
+
+.selfgrow-inbox-header h2 {
+  font-size: clamp(26px, 5vw, 38px);
+  letter-spacing: -0.035em;
+  margin: var(--size-4-1) 0 var(--size-4-2);
+}
+
+.selfgrow-inbox-header p {
+  color: var(--text-muted);
+  font-size: var(--font-ui-medium);
+  margin: 0;
+  margin-bottom: var(--size-4-4);
+  max-width: 620px;
+}
+
+.selfgrow-brand {
+  font-weight: var(--font-semibold);
+  margin-bottom: var(--size-4-3);
+}
+
+.selfgrow-section-navigation {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-top: var(--size-4-4);
+}
+
+.selfgrow-section-navigation button {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--text-muted);
+  margin: 0;
+  min-height: 44px;
+}
+
+.selfgrow-section-navigation button.is-active {
+  border-bottom-color: var(--interactive-accent);
+  color: var(--text-normal);
+  font-weight: var(--font-semibold);
+}
+
+.selfgrow-capture-composer {
+  display: grid;
+  gap: var(--size-4-4);
+  margin-bottom: var(--size-4-6);
+}
+
+.selfgrow-capture-fields {
+  display: grid;
+  gap: var(--size-4-4);
+}
+
+.selfgrow-capture-field {
+  display: grid;
+  gap: var(--size-4-2);
+}
+
+.selfgrow-capture-field label {
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+  font-weight: var(--font-semibold);
+}
+
+.selfgrow-capture-category {
+  box-sizing: border-box;
+  font: inherit;
+  min-height: 44px;
+  padding: var(--size-4-1) var(--size-4-3);
+  width: 100%;
+}
+
+.selfgrow-capture-suggestion {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  margin: 0;
+}
+
+.selfgrow-capture-title,
+.selfgrow-capture-share {
+  box-sizing: border-box;
+  font: inherit;
+  min-height: 44px;
+  padding: var(--size-4-3);
+  width: 100%;
+}
+
+.selfgrow-capture-share {
+  line-height: 1.55;
+  min-height: 92px;
+  resize: vertical;
+}
+
+.selfgrow-capture-route {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.selfgrow-capture-images {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-2);
+}
+
+.selfgrow-capture-images input[type='file'] {
+  background: var(--background-primary-alt);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  min-height: 44px;
+  padding: var(--size-4-2);
+  width: 100%;
+}
+
+.selfgrow-capture-images span {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.selfgrow-capture-image-list {
+  display: grid;
+  gap: var(--size-4-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.selfgrow-capture-image-list li {
+  align-items: center;
+  display: flex;
+  gap: var(--size-4-2);
+  justify-content: space-between;
+}
+
+.selfgrow-capture-submit {
+  min-height: 44px;
+  width: 100%;
+}
+
+.selfgrow-capture-footer {
+  margin-top: var(--size-4-2);
+}
+
+.selfgrow-candidate-modal {
+  box-sizing: border-box;
+  max-width: 520px;
+  width: min(520px, calc(100vw - 32px));
+}
+
+.selfgrow-candidate {
+  align-items: stretch;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  cursor: pointer;
+  display: grid;
+  gap: var(--size-4-1);
+  margin: var(--size-4-2) 0;
+  min-height: 44px;
+  padding: var(--size-4-3);
+  text-align: left;
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.selfgrow-candidate-name {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  font-weight: var(--font-semibold);
+  gap: var(--size-4-2);
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.selfgrow-candidate-archived {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  font-weight: normal;
+}
+
+.selfgrow-candidate-desc {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.selfgrow-candidate-meta {
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+}
+
+.selfgrow-inbox-row {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  margin-top: var(--size-4-3);
+  padding: var(--size-4-4);
+}
+
+.selfgrow-inbox-row h3,
+.selfgrow-inbox-row p {
+  margin: 0 0 var(--size-4-2);
+}
+
+.selfgrow-inbox-state {
+  color: var(--text-accent);
+  font-weight: var(--font-semibold);
+}
+
+.selfgrow-inbox-progress-line {
+  align-items: center;
+  display: flex;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-2);
+}
+
+.selfgrow-inbox-progress-line .selfgrow-inbox-state {
+  margin: 0;
+}
+
+.selfgrow-progress-ring {
+  --selfgrow-ring-color: var(--interactive-accent);
+  align-items: center;
+  background: conic-gradient(
+    var(--selfgrow-ring-color) var(--selfgrow-progress),
+    var(--background-modifier-border) 0
+  );
+  border-radius: 50%;
+  display: inline-flex;
+  flex: 0 0 24px;
+  height: 24px;
+  justify-content: center;
+  position: relative;
+  width: 24px;
+}
+
+.selfgrow-progress-ring::before {
+  background: var(--background-primary);
+  border-radius: 50%;
+  content: '';
+  inset: 4px;
+  position: absolute;
+}
+
+.selfgrow-progress-ring span {
+  color: var(--selfgrow-ring-color);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.selfgrow-progress-ring.is-active {
+  animation: selfgrow-progress-pulse 1.2s ease-in-out infinite;
+}
+
+.selfgrow-progress-ring.is-waiting {
+  --selfgrow-ring-color: var(--text-muted);
+}
+
+.selfgrow-progress-ring.is-success {
+  --selfgrow-ring-color: var(--color-green);
+}
+
+.selfgrow-progress-ring.is-failure {
+  --selfgrow-ring-color: var(--text-error);
+}
+
+@keyframes selfgrow-progress-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.selfgrow-inbox-error {
+  color: var(--text-error);
+}
+
+.selfgrow-inbox-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-2);
+  margin-top: var(--size-4-3);
+}
+
+.selfgrow-inbox-actions button {
+  min-height: 44px;
+}
+
+.selfgrow-inbox-empty {
+  color: var(--text-muted);
+  margin: var(--size-4-5) 0 0;
+  text-align: center;
+}
+
+.selfgrow-review {
+  margin: 0 auto;
+  max-width: 800px;
+  padding: clamp(var(--size-4-4), 4vw, var(--size-4-8));
+}
+
+.selfgrow-review-header {
+  border-bottom: 1px solid var(--background-modifier-border);
+  margin-bottom: var(--size-4-6);
+}
+
+.selfgrow-review-header h2 {
+  font-size: clamp(26px, 5vw, 38px);
+  letter-spacing: -0.035em;
+  margin: var(--size-4-1) 0 var(--size-4-2);
+}
+
+.selfgrow-review-header p,
+.selfgrow-review-handoff span,
+.selfgrow-review-meta,
+.selfgrow-review-section-empty,
+.selfgrow-review-empty {
+  color: var(--text-muted);
+}
+
+.selfgrow-review-header p {
+  margin: 0 0 var(--size-4-4);
+}
+
+.selfgrow-review-handoff {
+  display: grid;
+  gap: var(--size-4-1);
+  margin: var(--size-4-4) 0;
+}
+
+.selfgrow-review-folder-filter {
+  display: grid;
+  gap: var(--size-4-2);
+}
+
+.selfgrow-review-folder-filter label {
+  font-size: var(--font-ui-small);
+  font-weight: var(--font-semibold);
+}
+
+.selfgrow-review-folder-filter select {
+  min-height: 44px;
+  width: 100%;
+}
+
+.selfgrow-review-batch {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-2);
+  margin: var(--size-4-3) 0 var(--size-4-5);
+}
+
+.selfgrow-review-batch span {
+  margin-right: auto;
+}
+
+.selfgrow-review-batch button,
+.selfgrow-review-actions button {
+  min-height: 44px;
+}
+
+.selfgrow-review-section {
+  margin-top: var(--size-4-5);
+}
+
+.selfgrow-review-section-heading {
+  align-items: center;
+  border-bottom: 1px solid var(--background-modifier-border);
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--size-4-3);
+  padding-bottom: var(--size-4-2);
+}
+
+.selfgrow-review-section-heading h3 {
+  margin: 0;
+}
+
+.selfgrow-review-section-heading span {
+  color: var(--text-muted);
+  min-width: 28px;
+  text-align: center;
+}
+
+.selfgrow-review-card {
+  -webkit-touch-callout: none;
+  background: var(--background-primary-alt);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  cursor: pointer;
+  padding: var(--size-4-4);
+  position: relative;
+  transform: translateX(var(--selfgrow-swipe-x, 0px)) scale(var(--selfgrow-press, 1));
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    box-shadow 160ms ease,
+    transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  user-select: none;
+  z-index: 1;
+}
+
+.selfgrow-review-card:hover {
+  border-color: var(--background-modifier-border-hover);
+}
+
+.selfgrow-review-card.is-pressed {
+  --selfgrow-press: 0.985;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    transform 80ms ease-out;
+}
+
+.selfgrow-review-swipe {
+  border-radius: var(--radius-m);
+  margin-bottom: var(--size-4-3);
+  overscroll-behavior-x: contain;
+  overflow: hidden;
+  position: relative;
+  touch-action: pan-y;
+}
+
+.selfgrow-review-swipe > span {
+  align-items: center;
+  bottom: 0;
+  display: flex;
+  font-size: var(--font-ui-small);
+  font-weight: var(--font-semibold);
+  opacity: 0;
+  padding: 0 var(--size-4-4);
+  position: absolute;
+  top: 0;
+  transition:
+    opacity 120ms ease,
+    transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.selfgrow-review-swipe-select {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  left: 0;
+  transform: translateX(-12px);
+}
+
+.selfgrow-review-swipe-delete {
+  background: var(--background-modifier-error);
+  color: var(--text-on-accent);
+  justify-content: flex-end;
+  right: 0;
+  transform: translateX(12px);
+}
+
+.selfgrow-review-card.is-dragging {
+  cursor: grabbing;
+  transition: none;
+  user-select: none;
+}
+
+.selfgrow-review-swipe:has(.is-swiping-right) .selfgrow-review-swipe-select,
+.selfgrow-review-swipe:has(.is-swiping-left) .selfgrow-review-swipe-delete {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.selfgrow-review-card.is-selecting {
+  display: grid;
+  gap: var(--size-4-3);
+  grid-template-columns: 44px minmax(0, 1fr);
+}
+
+.selfgrow-review-card.is-selected {
+  background: var(--background-modifier-hover);
+  border-color: var(--interactive-accent);
+}
+
+.selfgrow-review-checkbox-target {
+  align-items: flex-start;
+  display: flex;
+  height: 44px;
+  justify-content: center;
+  width: 44px;
+}
+
+.selfgrow-review-checkbox {
+  height: 20px;
+  margin-top: 4px;
+  width: 20px;
+}
+
+@keyframes selfgrow-checkbox-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.selfgrow-review-card.is-selecting .selfgrow-review-checkbox-target {
+  animation: selfgrow-checkbox-pop 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes selfgrow-batch-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.selfgrow-review-batch:not([hidden]) {
+  animation: selfgrow-batch-in 200ms ease-out;
+}
+
+.selfgrow-review-card-top {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--size-4-3);
+  justify-content: space-between;
+}
+
+.selfgrow-review-card-top h4 {
+  font-size: var(--font-ui-large);
+  margin: 0;
+}
+
+.selfgrow-review-more {
+  flex: 0 0 auto;
+  position: relative;
+}
+
+.selfgrow-review-more summary {
+  align-items: center;
+  border-radius: var(--radius-s);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  height: 44px;
+  justify-content: center;
+  list-style: none;
+  width: 44px;
+}
+
+.selfgrow-review-more summary::-webkit-details-marker {
+  display: none;
+}
+
+.selfgrow-review-more[open] > div {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-s);
+  display: grid;
+  gap: var(--size-4-1);
+  min-width: 132px;
+  padding: var(--size-4-2);
+  position: absolute;
+  right: 0;
+  top: 48px;
+  z-index: 5;
+}
+
+.selfgrow-review-more button {
+  min-height: 40px;
+  width: 100%;
+}
+
+.selfgrow-review-state {
+  color: var(--text-accent);
+  font-weight: var(--font-semibold);
+}
+
+.selfgrow-review-state.is-failed {
+  color: var(--text-error);
+}
+
+.selfgrow-review-state.is-completed {
+  color: var(--color-green);
+}
+
+.selfgrow-review-preview {
+  display: -webkit-box;
+  line-height: 1.6;
+  margin: var(--size-4-3) 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.selfgrow-review-thumbnail {
+  border-radius: var(--radius-m);
+  display: block;
+  max-height: 180px;
+  max-width: min(100%, 320px);
+  object-fit: cover;
+}
+
+.selfgrow-review-meta,
+.selfgrow-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-2) var(--size-4-4);
+}
+
+.selfgrow-review-meta {
+  font-size: var(--font-ui-smaller);
+  margin-top: var(--size-4-3);
+}
+
+.selfgrow-review-actions {
+  margin-top: var(--size-4-3);
+}
+
+.selfgrow-review-actions > button {
+  flex: 1 1 180px;
+}
+
+.selfgrow-review button:not(:disabled),
+.selfgrow-inbox button:not(:disabled) {
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    transform 80ms ease;
+}
+
+.selfgrow-review button:not(:disabled):active,
+.selfgrow-inbox button:not(:disabled):active {
+  transform: translateY(1px) scale(0.98);
+}
+
+.selfgrow-review button:focus-visible,
+.selfgrow-inbox button:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+}
+
+.selfgrow-review button.is-busy,
+.selfgrow-inbox button.is-busy,
+.selfgrow-review-card.is-busy {
+  cursor: progress;
+  opacity: 0.72;
+}
+
+.selfgrow-review-empty,
+.selfgrow-review-section-empty {
+  text-align: center;
+}
+
+@media (max-width: 520px) {
+  .selfgrow-review-batch {
+    align-items: stretch;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: var(--size-4-2) 0;
+  }
+
+  .selfgrow-review-batch span {
+    grid-column: 1 / -1;
+  }
+
+  .selfgrow-review-card.is-selecting {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+
+  .selfgrow-review-card {
+    padding: var(--size-4-3);
+  }
+
+  .selfgrow-review-actions button {
+    flex: 1 1 140px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selfgrow-review-card,
+  .selfgrow-review-swipe > span,
+  .selfgrow-review button,
+  .selfgrow-inbox button {
+    transition: none;
+  }
+
+  .selfgrow-review-card.is-selecting .selfgrow-review-checkbox-target,
+  .selfgrow-review-batch:not([hidden]) {
+    animation: none;
+  }
+}
+
+/* Inbox capture notes are durable implementation records. Users interact with the
+   operational SelfGrow inbox view instead of the raw state frontmatter. */
+.nav-folder:has(> .nav-folder-title[data-path^='SelfGrow/Inbox']),
+.nav-folder:has(> .nav-folder-title[data-path*='/SelfGrow/Inbox']),
+.nav-folder-title[data-path^='SelfGrow/Inbox'],
+.nav-folder-title[data-path*='/SelfGrow/Inbox'],
+.nav-folder:has(> .nav-folder-title[data-path^='SelfGrow/Attachments']),
+.nav-folder:has(> .nav-folder-title[data-path*='/SelfGrow/Attachments']),
+.nav-folder-title[data-path^='SelfGrow/Attachments'],
+.nav-folder-title[data-path*='/SelfGrow/Attachments'] {
+  display: none !important;
+}
+
+.selfgrow-internal-view .metadata-container,
+.selfgrow-internal-view .inline-title,
+.selfgrow-knowledge-view .metadata-container,
+.selfgrow-knowledge-view .inline-title,
+.selfgrow-internal .metadata-container,
+.selfgrow-internal .inline-title {
+  display: none !important;
+}

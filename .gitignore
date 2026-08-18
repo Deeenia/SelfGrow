@@ -1,0 +1,16 @@
+node_modules/
+main.js
+!tests/fixtures/vault/.obsidian/plugins/selfgrow/main.js
+build-meta.json
+coverage/
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+.codex/
+.icloud-recovery/
+.slt-review/
+skills/ponytail/
+**/__pycache__/
+*.py[cod]
