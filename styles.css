@@ -390,6 +390,7 @@
   border: 0;
   border-bottom: 2px solid transparent;
   border-radius: 0;
+  box-shadow: none;
   color: var(--text-muted);
   flex: 0 0 auto;
   gap: var(--size-4-1);
@@ -424,6 +425,11 @@
   padding: var(--size-4-2);
   position: sticky;
   z-index: 4;
+}
+
+.selfgrow-review-batch[hidden],
+.selfgrow-review-batch button[hidden] {
+  display: none;
 }
 
 .selfgrow-review-batch span {
@@ -729,6 +735,24 @@
 }
 
 @media (max-width: 520px) {
+  .selfgrow-review-batch {
+    flex-wrap: nowrap;
+    gap: var(--size-4-1);
+    overflow-x: auto;
+    padding: var(--size-4-1);
+  }
+
+  .selfgrow-review-batch span {
+    flex: 0 0 auto;
+    font-size: var(--font-ui-smaller);
+    white-space: nowrap;
+  }
+
+  .selfgrow-review-batch button {
+    flex: 0 0 auto;
+    padding-inline: var(--size-4-2);
+  }
+
   .selfgrow-review-card.is-selecting {
     grid-template-columns: 32px minmax(0, 1fr);
   }
@@ -739,6 +763,17 @@
 
   .selfgrow-review-actions button {
     flex: 1 1 140px;
+  }
+}
+
+@media (min-width: 521px) {
+  .selfgrow-review-tabs {
+    gap: var(--size-4-2);
+    justify-content: center;
+  }
+
+  .selfgrow-review-tabs button {
+    padding-inline: var(--size-4-4);
   }
 }
 

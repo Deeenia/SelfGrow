@@ -1,10 +1,12 @@
 # SelfGrow Project Status
 
-Last updated: 2026-08-19
+Last updated: 2026-08-20
 Current product: SelfGrow for Obsidian  
 Current phase: V5 feature development complete — stabilization, tuning, and bug fixing
 
-## 0. Latest stabilization pass (2026-08-19)
+## 0. Latest stabilization pass (2026-08-20)
+
+- Review responsive-control fix: desktop status tabs no longer inherit Obsidian's boxed button shadow and now use centered spacing above 520 px. The sticky batch bar and its conditional actions now explicitly honor their `hidden` attributes despite scoped flex/button styling, so the erroneous `已勾选 0 条` bar disappears; when active on mobile, the bar stays on one horizontally contained row with compact gaps and padding so `完成` does not wrap below the other actions. All controls retain a 44 px minimum target height. Formatting, lint, all 267 tests in 34 files, source/test typechecking, and production build pass; the bundle remains 524,083 bytes raw and 126,704 bytes gzip. Real Obsidian acceptance remains for the desktop tab spacing, mixed-selection batch actions at about 390 px, narrow-width horizontal containment, and light/dark themes. This CSS refinement has not been installed into either live plugin directory.
 
 - Review pagination refinement: the redundant persistent Codex handoff card is removed. `未选择`, `待沉淀`, `已沉淀`, `更新`, and `失败` are now horizontally scrollable status pages with live counts; only the active status renders, in deterministic pages of at most 10 cards with 44 px previous/next controls when needed. Folder, status, and page changes clear temporary multi-select state so hidden cards cannot receive batch actions. The sticky batch bar appears only after at least one card is checked, shows only applicable selection/cancellation actions plus Delete and Done, and removing the final check exits selection mode. Formatting, lint, all 267 tests in 34 files, source/test typechecking, and production build pass; the bundle is 524,083 bytes raw and 126,704 bytes gzip. The validated `main.js`, `manifest.json`, and `styles.css` are installed identically in the desktop and iPhone/iCloud plugin directories; `main.js` matches source SHA-256 `EA960280AF265C717EA0B93FDF8FB1F2E99198522F3C2920C74CBD28568D8344`, and both device-specific `data.json` files were preserved byte-identically. Real Obsidian acceptance remains for horizontal status scrolling, 10+ cards, page-boundary deletion, 390 px batch wrapping, light/dark themes, sticky behavior, and iCloud plugin reload.
 
