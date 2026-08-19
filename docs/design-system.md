@@ -90,7 +90,7 @@ Actions:
 - Double-tapping a card opens its Raw note through Obsidian's native navigation history; a single tap only gives press feedback, so swipes and opens never compete. The host Back action returns directly to Review without reopening the plugin.
 - Long-pressing a card enters multi-select and selects that card; there is no separate `多选` button.
 - Outside multi-select, swiping a card right toggles the deposit decision (selects an unselected card, deselects a queued one) and swiping left opens the confirmed-delete flow. Cards under `已沉淀` never swipe right. Vertical scrolling wins until horizontal movement is clear, and incomplete swipes snap back with a spring.
-- Multi-select reveals card checkboxes and a sticky batch bar only while at least one card is checked. The bar shows `已勾选 n 条` plus only the applicable `选择沉淀` or `取消沉淀` action, `删除`, and `完成`. On mobile it follows Obsidian's dynamic bottom spacing with an 8 px visual overlap, keeping the controls close to but still above the floating navbar. Removing the final check exits multi-select automatically. Tapping a card while multi-select is active toggles it.
+- Multi-select reveals card checkboxes and a sticky batch bar only while at least one card is checked. The bar shows `已勾选 n 条` plus only the applicable `选择沉淀` or `取消沉淀` action, `删除`, and `完成`. On mobile it follows Obsidian's dynamic bottom spacing with a user-tuned 24 px visual overlap, keeping the controls close to but still above the floating navbar. Removing the final check exits multi-select automatically. Tapping a card while multi-select is active toggles it.
 - `确认更新` remains the only visible per-card primary action when a completed Raw changed.
 - The card's overflow menu offers `选择沉淀`/`取消沉淀` and single-card `删除`.
 

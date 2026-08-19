@@ -417,7 +417,7 @@
   background: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 16px;
-  bottom: calc(var(--view-bottom-spacing, 0px) - var(--size-4-2));
+  bottom: calc(var(--view-bottom-spacing, 0px) - 24px);
   display: flex;
   flex-wrap: wrap;
   gap: var(--size-4-2);
