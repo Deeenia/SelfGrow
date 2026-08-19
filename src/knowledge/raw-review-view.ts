@@ -87,9 +87,6 @@ export class RawReviewView extends ItemView {
       cls: 'is-active',
       text: copy.review,
     });
-    header.createEl('h2', { text: copy.title });
-    header.createEl('p', { text: copy.subtitle });
-
     const folderFilter = this.contentEl.createDiv({ cls: 'selfgrow-review-folder-filter' });
     folderFilter.createEl('label', { text: copy.folderFilter });
     const folder = folderFilter.createEl('select');
@@ -543,12 +540,10 @@ const COPY = {
       processing: '… Codex processing',
       queued: '✓ Selected; awaiting Codex',
     },
-    subtitle: 'Decide which Raw cards deserve a place in the long-term Wiki.',
     swipeCancel: 'Swipe right to deselect',
     swipeDelete: 'Swipe left to delete',
     swipeSelect: 'Swipe right to select',
     targets: (count: number) => `${count} Wiki target(s)`,
-    title: 'SelfGrow Review',
   },
   'zh-CN': {
     actionFailed: 'Raw 操作失败。',
@@ -586,12 +581,10 @@ const COPY = {
       processing: '… Codex 处理中',
       queued: '✓ 已选择，等待 Codex',
     },
-    subtitle: '决定哪些 Raw 值得进入长期 Wiki。',
     swipeCancel: '右滑取消沉淀',
     swipeDelete: '左滑删除',
     swipeSelect: '右滑选择沉淀',
     targets: (count: number) => `关联 ${count} 个 Wiki 页面`,
-    title: '知识筛选',
   },
 } as const;
 

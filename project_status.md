@@ -1,10 +1,12 @@
 # SelfGrow Project Status
 
-Last updated: 2026-08-18  
+Last updated: 2026-08-19
 Current product: SelfGrow for Obsidian  
 Current phase: V5 feature development complete — stabilization, tuning, and bug fixing
 
-## 0. Latest stabilization pass (2026-08-17)
+## 0. Latest stabilization pass (2026-08-19)
+
+- Material-style UI refinement: the shared header now switches directly between `收集` and `筛选`, and both views remove their repeated page title and explanatory subtitle. Collect uses one rounded Obsidian-themed form surface, a native 44 px plus-icon folder action, consistent rounded fields, and one full-width primary Save action; Review uses the same radius tier for its folder filter, Codex handoff, state chips, and Raw cards. The implementation keeps Obsidian theme variables, one accent color, thin borders, dark-theme compatibility, existing gestures, overflow deletion, and reduced-motion behavior without adding a framework, dependency, gradient, or persistent shadow. Automated validation passes formatting, lint, all 267 tests in 34 files, source/test typechecking, and production build; the bundle is 522,813 bytes raw and 126,241 bytes gzip. Real-device visual acceptance remains for light/dark themes around 390 px mobile width and 760 px desktop width; no build was installed into a live Vault.
 
 - Collection folders are now extensible: `Project`, `Skill`, and `Experience` remain the built-in choices, while any valid first-level Raw folder is listed and can be created directly from Collect. Internal `Inbox` and `Attachments` paths remain protected.
 - Ambiguous GitHub-name selection now closes immediately after a choice, writes the selected repository back into the link field, and waits for a second explicit Save before capture. Candidate names/descriptions wrap and clamp safely on narrow mobile dialogs.

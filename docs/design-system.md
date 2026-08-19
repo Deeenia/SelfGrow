@@ -5,11 +5,13 @@ Status: Active mobile-first design
 
 ## 1. Direction
 
-SelfGrow uses Obsidian's shell, themes, editor, properties, graph, backlinks, search, dialogs, and accessibility behavior. Collect and Review are equal navigation buttons and switch directly between the two plugin views.
+SelfGrow uses Obsidian's shell, themes, editor, properties, graph, backlinks, search, dialogs, and accessibility behavior. `收集` and `筛选` are equal navigation buttons and switch directly between the two plugin views. The shared `SelfGrow` brand and navigation provide enough context, so neither view repeats a page title or explanatory subtitle below the tabs.
 
 Principles:
 
 - content before controls
+- restrained Material-style rounded surfaces with thin Obsidian-theme borders
+- one Obsidian accent color and no gradients
 - explicit human admission to the Wiki
 - native Obsidian capability before custom UI
 - no AI spectacle, gamification, recommendation feed, or hidden automation
@@ -55,12 +57,14 @@ Saving returns after durable local capture. Extraction and Raw generation contin
 
 ## 4. Review View
 
-Header:
+Header navigation:
 
 ```text
-知识筛选
-决定哪些 Raw 值得进入长期 Wiki
+SelfGrow
+收集 | 筛选
 ```
+
+The folder filter begins directly below the navigation. There is no repeated `知识筛选` title or explanatory subtitle.
 
 Use five filter chips or sections:
 

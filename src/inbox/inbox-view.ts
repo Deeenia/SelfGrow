@@ -1,4 +1,4 @@
-import { ItemView, Modal, Notice, Setting, type WorkspaceLeaf } from 'obsidian';
+import { ItemView, Modal, Notice, Setting, setIcon, type WorkspaceLeaf } from 'obsidian';
 import {
   isSelfGrowError,
   isRawCategory,
@@ -113,8 +113,6 @@ export class InboxView extends ItemView {
     });
     const review = navigation.createEl('button', { text: copy.openReview });
     review.addEventListener('click', () => void this.#run(() => this.#dependencies.openReview()));
-    header.createEl('h2', { text: copy.title });
-    header.createEl('p', { text: copy.subtitle });
     this.#renderComposer(language, folders);
     if (items.length === 0) {
       this.contentEl.createEl('p', { cls: 'selfgrow-inbox-empty', text: copy.empty });
@@ -154,7 +152,11 @@ export class InboxView extends ItemView {
       this.#categoryTouched = true;
     });
     this.#categorySelect = category;
-    const createFolder = categoryField.createEl('button', { text: copy.createFolder });
+    const createFolder = categoryField.createEl('button', {
+      attr: { 'aria-label': copy.createFolder, title: copy.createFolder },
+      cls: 'selfgrow-capture-create-folder',
+    });
+    setIcon(createFolder, 'plus');
     createFolder.addEventListener('click', () => {
       new CreateFolderModal(this.app, language, async (name) => {
         const created = await this.#dependencies.service.createFolder(name);
@@ -663,7 +665,7 @@ const COPY = {
       'Paste a link, a full platform share message, or a GitHub project/Skill name; the first link is extracted',
     noteLabel: 'Body · optional',
     notePlaceholder: 'Paste or write the source text',
-    openReview: 'Review knowledge',
+    openReview: 'Review',
     removeImage: 'Remove',
     retry: 'Retry',
     routeAI: 'Raw evidence · text/link, or visual preview · image only',
@@ -671,10 +673,8 @@ const COPY = {
     routeDirectNoLink: 'Direct Raw · local files preserved',
     submit: 'Save',
     submitting: 'Saving…',
-    subtitle: 'Keep source evidence now; synthesize selected material in the Wiki later.',
     suggestionAI: 'AI suggestion:',
     suggestionLocal: 'Local recognition (AI unavailable):',
-    title: 'Collect knowledge',
     titleLabel: 'Title · optional',
     titlePlaceholder: 'Document title (optional; otherwise derived from the text or image name)',
     folderPlaceholder: 'Folder name',
@@ -703,7 +703,7 @@ const COPY = {
     linkPlaceholder: '粘贴链接、完整平台分享文案，或 GitHub 项目/Skill 名称；自动提取第一个链接',
     noteLabel: '正文 · 可选',
     notePlaceholder: '粘贴或输入原始正文',
-    openReview: '知识筛选',
+    openReview: '筛选',
     removeImage: '移除',
     retry: '重试',
     routeAI: 'Raw 原始材料 · 文字/链接；视觉预览 · 仅图片',
@@ -711,10 +711,8 @@ const COPY = {
     routeDirectNoLink: '直接保存 Raw · 保留本地文件',
     submit: '保存',
     submitting: '正在保存…',
-    subtitle: '先保留原始证据，选中后再由 Wiki 完成总结与关联。',
     suggestionAI: 'AI 建议：',
     suggestionLocal: '本地识别（AI 不可用）：',
-    title: '收集知识',
     titleLabel: '标题 · 可选',
     titlePlaceholder: '文档标题（可选；留空时从文字或图片名获取）',
     folderPlaceholder: '输入文件夹名称',
