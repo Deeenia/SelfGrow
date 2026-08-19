@@ -4,6 +4,16 @@ Last updated: 2026-08-20
 Current product: SelfGrow for Obsidian  
 Current phase: V5 feature development complete — stabilization, tuning, and bug fixing
 
+## Current Collaboration Handoff (2026-08-20)
+
+- GitHub collaboration is active through the private repository `https://github.com/Deeenia/SelfGrow`. The shared baseline remains clean `main` at commit `2705884` (`feat: initialize SelfGrow collaboration repository`), matching `origin/main`; the consolidated UI work lives on `feature/ui-stabilization` for review and collaborator additions.
+- Never implement directly on `main`. Start each scoped update from the latest `main` in its own branch, use `feature/android-compat` for the Android compatibility stream, `fix/<short-name>` for one defect, and `docs/<short-name>` for documentation-only work. Do not mix unrelated changes or overwrite a collaborator's edits.
+- Before opening a pull request, inspect every changed file, run `npm run check`, run the SelfGrow Wiki Skill self-test when that Skill changes, and record any device-only validation that still needs the user or Android collaborator. Push the branch and merge through a reviewed pull request.
+- Immediate collaboration priority is Android compatibility plus desktop/mobile behavior parity. Preserve the current iOS/iCloud and Obsidian behavior while fixing Android-specific filesystem, path, share-intent, rendering, lifecycle, and SecretStorage differences with the smallest platform boundary necessary.
+- The proposed P0 foundation batch—category/folder separation, Raw re-extraction, diagnostics UI, and plugin/Skill contract checks—is explicitly deferred until the final product pass. Do not restore the deleted local branch `feature/p0-beta-foundations`, resurrect commit `25b5015`, or install that build unless the user explicitly reopens P0. Re-plan it from the then-current `main` so collaborator work is included.
+- Repository work is owned by the primary OpenAI agent under `D:\Brainstorming\AGENTS.md`. Do not invoke or spawn DeepSeek, and do not create `.codex/deepseek-worker-task.md`, unless the user explicitly confirms an override of that repository rule.
+- Do not install a plugin build into a live Vault, modify iCloud state, push a branch, or merge a pull request merely to prepare a handoff. Those actions require the corresponding user request and must follow validation.
+
 ## 0. Latest stabilization pass (2026-08-20)
 
 - Mobile collection-progress refinement: the current foreground `queued`, `extracting`, or `generating` capture now reuses the existing progress ring in a centered 152 px translucent, pointer-transparent mobile overlay with its real percentage and localized stage text, so Obsidian's floating bottom navbar cannot cover the status. The original capture row retains title, time, and actions without duplicating the progress line; waiting-network/configuration, incomplete, and failed items remain ordinary cards with explanations and retry/delete controls, and desktop retains the inline layout. Formatting, lint, all 267 tests in 34 files, source/test typechecking, and production build pass; the bundle is 524,568 bytes raw and 126,873 bytes gzip. The validated build is installed identically in both desktop and iPhone/iCloud plugin directories; `main.js` matches source SHA-256 `EC9F45F9140984CEB8D42A17832C415FC745BF7A960CF2DFE5295187C9C10619`, `styles.css` matches `8A269DFF33A33AA65EFD305D60A59EE462BD7DD63C54D06ABC99DDC9F6D11DBF`, and both device-specific `data.json` files were preserved byte-identically. Real iPhone acceptance remains for center placement, transparency, light/dark themes, stage refresh, multiple queued captures, bottom-navbar/keyboard clearance, and iCloud plugin reload.
@@ -463,7 +473,7 @@ parse exact unchecked entries
 
 ## 8. Next Task
 
-No numbered V5 implementation task remains. The next window should work in stabilization mode, starting with this known defect:
+No numbered V5 implementation task remains. The next window should work in collaboration-focused stabilization mode. Begin from updated `main`, create one branch for one scoped issue, and prioritize Android compatibility or a currently reproducible desktop/mobile parity defect. The historical live-Vault defect below remains useful evidence but is no longer the default first task. P0 product-foundation work remains deferred until the user explicitly reopens it near the final product pass.
 
 - Applying an approved `selfgrow-wiki` batch while Obsidian/SelfGrow was running failed twice with the guard script's generic rollback error. The first failure left one Raw at `processing` and two at `failed`; the second marked all three `failed`. Wiki pages, Index, Log, and promoted assets rolled back correctly.
 - The identical validated proposal applied successfully to a normal workspace copy, and a repeated atomic-replace probe inside the live iCloud `Wiki/Assets` directory also passed. After the user cancelled/reselected the same three Raw cards and fully exited Obsidian, the real Vault apply succeeded.
@@ -530,22 +540,7 @@ Phase D remainder completed on 2026-08-09. Platform adapters now cover YouTube, 
 
 Task-040's V4 broad end-to-end target is superseded by Task-053. Cancelled V4 features are historical records, not later-stage commitments.
 
-## 9. Recommended New-Window Prompt
-
-```text
-Open D:\Brainstorming\SelfGrow\project_status.md and read it completely.
-Then read all six V5 source-of-truth documents under D:\Brainstorming\SelfGrow\docs completely.
-Tasks 046–053 and the first real approved three-Raw Wiki batch are complete. The project is now in stabilization, tuning, and bug-fixing mode; do not start a new feature roadmap without an explicit user request.
-The selfgrow-wiki guard now has bounded transient Windows sharing-conflict retries plus stage/path/cause diagnostics, and its focused regression checks and complete validation gate pass. Confirm it with the next explicitly approved selected-Raw batch while Obsidian is running. If it fails, preserve the new diagnostic output, identify the exact stage, and make only the smallest evidence-based follow-up; do not weaken rollback or ask the user to exit Obsidian as the product fix.
-The iCloud Wiki is now a categorized Vault-root sibling of SelfGrow: `AI/SelfGrow/` contains Raw material and `AI/Wiki/` contains Index, Log, five fixed type folders, and Assets. The old `AI/SelfGrow/Wiki` tree and obsolete mobile/desktop workspace references were removed after verified migration. Ask the user to cold-restart Obsidian mobile after iCloud synchronization, confirm the pages appear inside Concepts/Methods, and open Review from the Queue `知识筛选` button or ribbon. Do not move Wiki back under SelfGrow or flatten away its type navigation.
-Preserve the validated V5 workflow, exact-hash eligibility, visible proposal and approval, transactional rollback, protected 我的经验 bytes, retained/promoted image ownership, native Markdown wikilinks, and Obsidian's graph.
-When selected Raw is ready, run the selfgrow-wiki proposal/approval workflow. After Raw deletion, run its read-only maintenance inspection before any approved link cleanup.
-Do not implement the cancelled Map, Today, Favorites, custom search/embeddings, AI folders, similar warnings, regeneration, export/PDF, Clear All, graph database, edge table, Canvas, or custom graph rendering.
-Protect the user-owned 我的经验 section, never infer personal experience from external sources, and do not expose credentials or private content.
-Update project_status.md after each validated stabilization change.
-```
-
-## 10. Validation State
+## 9. Validation State
 
 At the last consistency check:
 
