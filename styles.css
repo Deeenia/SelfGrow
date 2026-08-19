@@ -266,6 +266,10 @@
   margin: 0;
 }
 
+.selfgrow-inbox-progress-overlay {
+  display: none;
+}
+
 .selfgrow-progress-ring {
   --selfgrow-ring-color: var(--interactive-accent);
   align-items: center;
@@ -735,6 +739,49 @@
 }
 
 @media (max-width: 520px) {
+  .selfgrow-inbox-progress-overlay {
+    align-items: center;
+    backdrop-filter: blur(8px);
+    background: color-mix(in srgb, var(--background-primary) 76%, transparent);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 50%;
+    display: flex;
+    height: 152px;
+    justify-content: center;
+    left: 50%;
+    pointer-events: none;
+    position: fixed;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 152px;
+    z-index: 8;
+  }
+
+  .selfgrow-inbox-progress-overlay .selfgrow-inbox-progress-line {
+    flex-direction: column;
+    margin: 0;
+    text-align: center;
+  }
+
+  .selfgrow-inbox-progress-overlay .selfgrow-progress-ring {
+    flex-basis: 80px;
+    height: 80px;
+    width: 80px;
+  }
+
+  .selfgrow-inbox-progress-overlay .selfgrow-progress-ring::before {
+    background: color-mix(in srgb, var(--background-primary) 82%, transparent);
+    inset: 8px;
+  }
+
+  .selfgrow-inbox-progress-overlay .selfgrow-progress-ring span {
+    font-size: var(--font-ui-medium);
+  }
+
+  .selfgrow-inbox-row.has-progress-overlay > .selfgrow-inbox-progress-line {
+    display: none;
+  }
+
   .selfgrow-review-batch {
     flex-wrap: nowrap;
     gap: var(--size-4-1);

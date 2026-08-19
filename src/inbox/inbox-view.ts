@@ -114,11 +114,15 @@ export class InboxView extends ItemView {
     const review = navigation.createEl('button', { text: copy.openReview });
     review.addEventListener('click', () => void this.#run(() => this.#dependencies.openReview()));
     this.#renderComposer(language, folders);
+    const activeItem =
+      items.find((item) => item.state === 'extracting' || item.state === 'generating') ??
+      items.find((item) => item.state === 'queued');
+    if (activeItem !== undefined) this.#renderProgressOverlay(activeItem);
     if (items.length === 0) {
       this.contentEl.createEl('p', { cls: 'selfgrow-inbox-empty', text: copy.empty });
       return;
     }
-    for (const item of items) this.#renderItem(item, language);
+    for (const item of items) this.#renderItem(item, language, item === activeItem);
   }
 
   #renderComposer(language: Language, folders: readonly string[]): void {
@@ -388,9 +392,11 @@ export class InboxView extends ItemView {
     void this.refresh();
   }
 
-  #renderItem(item: InboxOperationalItem, language: Language): void {
+  #renderItem(item: InboxOperationalItem, language: Language, hasOverlay: boolean): void {
     const copy = COPY[language];
-    const row = this.contentEl.createDiv({ cls: 'selfgrow-inbox-row' });
+    const row = this.contentEl.createDiv({
+      cls: `selfgrow-inbox-row${hasOverlay ? ' has-progress-overlay' : ''}`,
+    });
     row.createEl('h3', { text: item.label });
     this.#renderProgress(row, item.progress, item.progressText);
     row.createEl('time', {
@@ -424,7 +430,20 @@ export class InboxView extends ItemView {
     });
   }
 
-  #renderProgress(container: HTMLElement, progress: InboxProgress, text: string): void {
+  #renderProgressOverlay(item: InboxOperationalItem): void {
+    const overlay = this.contentEl.createDiv({
+      attr: { 'aria-atomic': 'true', 'aria-live': 'polite' },
+      cls: 'selfgrow-inbox-progress-overlay',
+    });
+    this.#renderProgress(overlay, item.progress, item.progressText, true);
+  }
+
+  #renderProgress(
+    container: HTMLElement,
+    progress: InboxProgress,
+    text: string,
+    showValue = false,
+  ): void {
     const line = container.createDiv({ cls: 'selfgrow-inbox-progress-line' });
     const ring = line.createDiv({ cls: `selfgrow-progress-ring is-${progress.kind}` });
     ring.style.setProperty('--selfgrow-progress', `${progress.value * 360}deg`);
@@ -435,6 +454,9 @@ export class InboxView extends ItemView {
     ring.setAttribute('aria-valuenow', String(Math.round(progress.value * 100)));
     if (progress.kind === 'failure') ring.createSpan({ text: '!' });
     if (progress.kind === 'success') ring.createSpan({ text: '✓' });
+    if (showValue && progress.kind !== 'failure' && progress.kind !== 'success') {
+      ring.createSpan({ text: `${Math.round(progress.value * 100)}%` });
+    }
     line.createEl('p', { cls: 'selfgrow-inbox-state', text });
   }
 

@@ -53,7 +53,7 @@ It has no separate content/note field. Source bodies, share residue, and OCR nev
 
 The category selector is the only destination choice; there is no free-form folder input and no `Knowledge` default. After the AI recognition card completes it updates the selector and title (unless the user already edited them) and shows the suggested preview; a local fallback is labeled `本地识别` and never masquerades as AI. A bare repository/Skill name without a URL triggers GitHub search on Save for `Project`/`Skill`: unique exact matches are adopted automatically, up to three candidates open in a native 44 px-target list (owner/repo, one-line description, stars, update time, archived badge) for confirmation, and a `未找到可靠 GitHub 仓库` notice keeps the original input when nothing matches.
 
-Saving returns after durable local capture. Extraction and Raw generation continue in the foreground. Completed work leaves Inbox; recoverable failures remain.
+Saving returns after durable local capture. Extraction and Raw generation continue in the foreground. On mobile, the current queued/extracting/generating item reuses the existing honest progress ring in a centered 152 px translucent, non-interactive overlay with percentage and stage text; its original row retains title, time, and actions without repeating the progress line. Waiting, incomplete, and failed items never become overlays, so their explanation and retry path remain visible. Desktop keeps the inline progress row. Completed work leaves Inbox; recoverable failures remain.
 
 ## 4. Review View
 

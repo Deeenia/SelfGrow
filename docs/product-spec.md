@@ -68,7 +68,7 @@ Every new text, link, and GitHub input produces one AI recognition card after th
 
 GitHub name completion applies only to `Project` and `Skill` inputs without a URL: the GitHub Search API is queried with bounded terms (original name, stripped name, `skill` variant, owner/repo), candidates are ranked by exact repo-name match, owner match, description/README mention, archive status, recency, and weak star signal. A single high-confidence exact match is adopted automatically; otherwise up to three candidates are shown for user confirmation; with no reliable result the original input is kept and the user is told `未找到可靠 GitHub 仓库` — no URL is fabricated. `Experience` input is never force-searched because of technical-looking words.
 
-Completed Inbox captures disappear immediately. Inbox retains only waiting, incomplete, and failed work.
+On mobile, the foreground queued/extracting/generating capture is represented by a centered translucent progress ring showing its existing durable stage percentage and localized stage text, outside the bottom-navbar region. The corresponding Inbox row keeps its identity and actions but does not repeat the progress line. Waiting-network, waiting-configuration, incomplete, and failed captures stay as ordinary cards with their explanation and retry/delete actions; desktop retains the inline progress presentation. Completed Inbox captures disappear immediately.
 
 ## 4. Raw Review
 
