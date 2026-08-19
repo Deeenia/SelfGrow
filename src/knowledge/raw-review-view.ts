@@ -30,11 +30,14 @@ const GROUPS: readonly RawReviewGroup[] = [
 
 const LONG_PRESS_MS = 500;
 const DOUBLE_TAP_MS = 300;
+const PAGE_SIZE = 10;
 
 export class RawReviewView extends ItemView {
   readonly #dependencies: RawReviewViewDependencies;
   readonly #selected = new Set<VaultPath>();
   #folder = '';
+  #group: RawReviewGroup = 'unselected';
+  #page = 0;
   #selectionMode = false;
 
   constructor(leaf: WorkspaceLeaf, dependencies: RawReviewViewDependencies) {
@@ -66,7 +69,7 @@ export class RawReviewView extends ItemView {
       this.#dependencies.service.listFolders(),
     ]);
     if (this.#folder.length > 0 && !folders.includes(this.#folder)) this.#folder = '';
-    const cards = allCards.filter(
+    const folderCards = allCards.filter(
       (card) => this.#folder.length === 0 || rawFolderName(card.path) === this.#folder,
     );
     const paths = new Set(allCards.map((card) => card.path));
@@ -95,20 +98,82 @@ export class RawReviewView extends ItemView {
     folder.value = this.#folder;
     folder.addEventListener('change', () => {
       this.#folder = folder.value;
+      this.#page = 0;
       this.#selected.clear();
       this.#selectionMode = false;
       void this.refresh();
     });
 
-    const handoff = this.contentEl.createDiv({ cls: 'selfgrow-review-handoff' });
-    handoff.createEl('strong', {
-      text: copy.handoff(allCards.filter((card) => card.wikiSelected).length),
+    const tabs = this.contentEl.createDiv({
+      attr: { 'aria-label': copy.statusFilter, role: 'navigation' },
+      cls: 'selfgrow-review-tabs',
     });
-    handoff.createSpan({ text: copy.codexInstruction });
+    for (const group of GROUPS) {
+      const active = group === this.#group;
+      const tab = tabs.createEl('button', {
+        attr: active ? { 'aria-current': 'page' } : undefined,
+        cls: active ? 'is-active' : '',
+      });
+      tab.createSpan({ text: copy.groups[group] });
+      tab.createSpan({
+        cls: 'selfgrow-review-tab-count',
+        text: String(folderCards.filter((card) => rawReviewGroup(card) === group).length),
+      });
+      if (active) {
+        window.requestAnimationFrame(() =>
+          tab.scrollIntoView({ block: 'nearest', inline: 'center' }),
+        );
+      }
+      tab.addEventListener('click', () => {
+        this.#group = group;
+        this.#page = 0;
+        this.#selected.clear();
+        this.#selectionMode = false;
+        void this.refresh();
+      });
+    }
 
-    if (cards.length === 0) {
+    if (folderCards.length === 0) {
       this.contentEl.createEl('p', { cls: 'selfgrow-review-empty', text: copy.empty });
       return;
+    }
+
+    const groupCards = folderCards.filter((card) => rawReviewGroup(card) === this.#group);
+    const pageCount = Math.max(1, Math.ceil(groupCards.length / PAGE_SIZE));
+    this.#page = Math.min(this.#page, pageCount - 1);
+    const pageCards = groupCards.slice(this.#page * PAGE_SIZE, (this.#page + 1) * PAGE_SIZE);
+    const page = this.contentEl.createDiv({ cls: 'selfgrow-review-page' });
+    let updateBatch = (): void => undefined;
+    if (pageCards.length === 0) {
+      page.createEl('p', { cls: 'selfgrow-review-empty', text: copy.emptyGroup });
+    } else {
+      for (const card of pageCards) {
+        this.#renderCard(page, card, language, () => updateBatch());
+      }
+    }
+
+    if (pageCount > 1) {
+      const pagination = this.contentEl.createDiv({
+        attr: { 'aria-label': copy.pagination },
+        cls: 'selfgrow-review-pagination',
+      });
+      const previous = pagination.createEl('button', {
+        attr: { 'aria-label': copy.previousPage },
+      });
+      setIcon(previous, 'chevron-left');
+      previous.disabled = this.#page === 0;
+      pagination.createSpan({ text: copy.page(this.#page + 1, pageCount) });
+      const next = pagination.createEl('button', { attr: { 'aria-label': copy.nextPage } });
+      setIcon(next, 'chevron-right');
+      next.disabled = this.#page === pageCount - 1;
+      const changePage = (value: number): void => {
+        this.#page = value;
+        this.#selected.clear();
+        this.#selectionMode = false;
+        void this.refresh();
+      };
+      previous.addEventListener('click', () => changePage(this.#page - 1));
+      next.addEventListener('click', () => changePage(this.#page + 1));
     }
 
     const batch = this.contentEl.createDiv({ cls: 'selfgrow-review-batch' });
@@ -117,20 +182,23 @@ export class RawReviewView extends ItemView {
     const cancel = batch.createEl('button', { text: copy.cancelDeposit });
     const remove = batch.createEl('button', { cls: 'mod-warning', text: copy.delete });
     const done = batch.createEl('button', { text: copy.finishSelection });
-    const updateBatch = (): void => {
+    updateBatch = (): void => {
       const selectedCount = this.#selected.size;
+      if (this.#selectionMode && selectedCount === 0) {
+        this.#selectionMode = false;
+        void this.refresh();
+        return;
+      }
       count.setText(copy.batchCount(selectedCount));
-      select.disabled = selectedCount === 0;
-      cancel.disabled = selectedCount === 0;
-      remove.disabled = selectedCount === 0;
-      select.hidden = selectedCount === 0;
-      cancel.hidden = selectedCount === 0;
-      remove.hidden = selectedCount === 0;
-      batch.hidden = !this.#selectionMode;
+      select.hidden = !pageCards.some(
+        (card) => this.#selected.has(card.path) && !card.wikiSelected,
+      );
+      cancel.hidden = !pageCards.some((card) => this.#selected.has(card.path) && card.wikiSelected);
+      batch.hidden = !this.#selectionMode || selectedCount === 0;
     };
     select.addEventListener('click', () => {
       void this.#run(async () => {
-        for (const card of cards) {
+        for (const card of pageCards) {
           if (this.#selected.has(card.path) && !card.wikiSelected) {
             await this.#dependencies.service.select(card.path);
           }
@@ -142,7 +210,7 @@ export class RawReviewView extends ItemView {
     });
     cancel.addEventListener('click', () => {
       void this.#run(async () => {
-        for (const card of cards) {
+        for (const card of pageCards) {
           if (this.#selected.has(card.path) && card.wikiSelected) {
             await this.#dependencies.service.cancelSelection(card.path);
           }
@@ -158,7 +226,7 @@ export class RawReviewView extends ItemView {
       void this.refresh();
     });
     remove.addEventListener('click', () => {
-      const selected = cards.filter((card) => this.#selected.has(card.path));
+      const selected = pageCards.filter((card) => this.#selected.has(card.path));
       if (selected.length === 0) return;
       new RawDeleteModal(this.app, language, selected.length, async () => {
         for (const card of selected) await this.#dependencies.service.deleteRaw(card.path, true);
@@ -168,16 +236,6 @@ export class RawReviewView extends ItemView {
       }).open();
     });
     updateBatch();
-
-    for (const group of GROUPS) {
-      const grouped = cards.filter((card) => rawReviewGroup(card) === group);
-      if (grouped.length === 0) continue;
-      const section = this.contentEl.createEl('section', { cls: 'selfgrow-review-section' });
-      const heading = section.createDiv({ cls: 'selfgrow-review-section-heading' });
-      heading.createEl('h3', { text: copy.groups[group] });
-      heading.createSpan({ text: String(grouped.length) });
-      for (const card of grouped) this.#renderCard(section, card, language, updateBatch);
-    }
   }
 
   #renderCard(
@@ -509,7 +567,6 @@ const COPY = {
     batchCount: (count: number) => `${count} selected`,
     batchSelect: 'Select Raw card',
     cancelDeposit: 'Deselect',
-    codexInstruction: 'Run selfgrow-wiki in Codex to process selected content.',
     collect: 'Collect',
     confirmUpdate: 'Confirm update',
     delete: 'Delete',
@@ -518,18 +575,22 @@ const COPY = {
     deleteTitle: 'Delete Raw?',
     direct: 'Direct capture',
     empty: 'No Raw cards yet.',
+    emptyGroup: 'No Raw cards in this state.',
     finishSelection: 'Done',
     folderFilter: 'Raw folder',
     groups: {
       completed: 'Distilled',
       failed: 'Failed',
-      needs_update: 'Content updated',
+      needs_update: 'Updated',
       queued: 'Awaiting distillation',
       unselected: 'Unselected',
     },
-    handoff: (count: number) => `${count} Raw selected.`,
     keep: 'Keep',
     more: 'More actions',
+    nextPage: 'Next page',
+    page: (current: number, total: number) => `${current} / ${total}`,
+    pagination: 'Raw card pages',
+    previousPage: 'Previous page',
     review: 'Review',
     select: 'Select for distillation',
     states: {
@@ -543,6 +604,7 @@ const COPY = {
     swipeCancel: 'Swipe right to deselect',
     swipeDelete: 'Swipe left to delete',
     swipeSelect: 'Swipe right to select',
+    statusFilter: 'Raw status',
     targets: (count: number) => `${count} Wiki target(s)`,
   },
   'zh-CN': {
@@ -551,7 +613,6 @@ const COPY = {
     batchCount: (count: number) => `已勾选 ${count} 条`,
     batchSelect: '勾选 Raw 卡片',
     cancelDeposit: '取消沉淀',
-    codexInstruction: '请在 Codex 中运行 selfgrow-wiki，处理已选择内容。',
     collect: '收集',
     confirmUpdate: '确认更新',
     delete: '删除',
@@ -559,18 +620,22 @@ const COPY = {
     deleteTitle: '删除 Raw？',
     direct: '直接收集',
     empty: '还没有 Raw 卡片。',
+    emptyGroup: '这个状态下还没有 Raw 卡片。',
     finishSelection: '完成',
     folderFilter: 'Raw 文件夹',
     groups: {
       completed: '已沉淀',
       failed: '失败',
-      needs_update: '内容已更新',
+      needs_update: '更新',
       queued: '待沉淀',
       unselected: '未选择',
     },
-    handoff: (count: number) => `已选择 ${count} 条 Raw。`,
     keep: '保留',
     more: '更多操作',
+    nextPage: '下一页',
+    page: (current: number, total: number) => `${current} / ${total}`,
+    pagination: 'Raw 卡片分页',
+    previousPage: '上一页',
     review: '筛选',
     select: '选择沉淀',
     states: {
@@ -584,6 +649,7 @@ const COPY = {
     swipeCancel: '右滑取消沉淀',
     swipeDelete: '左滑删除',
     swipeSelect: '右滑选择沉淀',
+    statusFilter: 'Raw 状态',
     targets: (count: number) => `关联 ${count} 个 Wiki 页面`,
   },
 } as const;

@@ -66,11 +66,13 @@ SelfGrow
 
 The folder filter begins directly below the navigation. There is no repeated `知识筛选` title or explanatory subtitle.
 
-Use five filter chips or sections:
+Use one horizontally scrollable status-tab row with live counts:
 
 ```text
-未选择 | 待沉淀 | 已沉淀 | 内容已更新 | 失败
+未选择 24 | 待沉淀 4 | 已沉淀 128 | 更新 2 | 失败 1
 ```
+
+Only the active status renders cards. Each status is divided into deterministic pages of at most 10 cards; previous/next controls appear only when another page exists. Changing the Raw folder, status, or page exits multi-select and clears temporary checkboxes so hidden cards can never receive a batch action.
 
 Each Raw card shows:
 
@@ -88,7 +90,7 @@ Actions:
 - Double-tapping a card opens its Raw note; a single tap only gives press feedback, so swipes and opens never compete.
 - Long-pressing a card enters multi-select and selects that card; there is no separate `多选` button.
 - Outside multi-select, swiping a card right toggles the deposit decision (selects an unselected card, deselects a queued one) and swiping left opens the confirmed-delete flow. Cards under `已沉淀` never swipe right. Vertical scrolling wins until horizontal movement is clear, and incomplete swipes snap back with a spring.
-- Multi-select reveals card checkboxes and one batch bar with a `已勾选 n 条` count; the `选择沉淀`, `取消沉淀`, and `删除` actions appear only while at least one card is checked, and `完成` always exits the mode. Tapping a card while multi-select is active toggles it.
+- Multi-select reveals card checkboxes and a sticky batch bar only while at least one card is checked. The bar shows `已勾选 n 条` plus only the applicable `选择沉淀` or `取消沉淀` action, `删除`, and `完成`. Removing the final check exits multi-select automatically. Tapping a card while multi-select is active toggles it.
 - `确认更新` remains the only visible per-card primary action when a completed Raw changed.
 - The card's overflow menu offers `选择沉淀`/`取消沉淀` and single-card `删除`.
 
@@ -111,12 +113,7 @@ Do not show fake percentages. A selected card remains visibly selected after com
 
 ## 6. Codex Handoff
 
-The Review view does not pretend it can launch Codex. It explains the next action:
-
-```text
-已选择 4 条 Raw。
-请在 Codex 中运行 selfgrow-wiki，处理已选择内容。
-```
+The Review view does not show a persistent Codex instruction surface. The `待沉淀 n` tab is the compact queue indicator; the user invokes `selfgrow-wiki` from Codex when they are ready.
 
 Codex presents its proposed pages and links in the Codex conversation. Approval happens there, not in a second Obsidian diff interface.
 
