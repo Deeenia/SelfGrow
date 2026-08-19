@@ -61,9 +61,12 @@ D:\ai_test\test\test\.obsidian\plugins\selfgrow\
 - [ ] Android：可看到 PC 端通过 Obsidian Sync 同步过来的 `SelfGrow.md` 和 `Wiki/`。
 - [ ] Android：核心兼容冒烟测试。
 
-### Local commits not pushed
+### Git status
 
-- `64d0312 chore: enforce LF line endings on Windows checkouts`
-- `afbad02 chore: ignore generated release artifacts`
-
-以上提交仅保存在本地，尚未推送到远程。
+- `feature/android-compat` 已推送到 `origin/feature/android-compat`。
+- 该分支包含：
+  - `64d0312 chore: enforce LF line endings on Windows checkouts`
+  - `afbad02 chore: ignore generated release artifacts`
+  - `f2cc819 docs: add changelog for test build and verification`
+- 本地 `main` 仍领先 `origin/main` 两个提交，暂不直接推送 `main`。
+- 协作者 UI 分支尚未在 `origin` 出现。
