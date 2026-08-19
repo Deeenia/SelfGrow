@@ -43,6 +43,7 @@ export class RawReviewView extends ItemView {
   constructor(leaf: WorkspaceLeaf, dependencies: RawReviewViewDependencies) {
     super(leaf);
     this.#dependencies = dependencies;
+    this.navigation = true;
   }
 
   override getViewType(): string {
