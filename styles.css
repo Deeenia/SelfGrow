@@ -187,20 +187,26 @@
   width: min(520px, calc(100vw - 32px));
 }
 
-.selfgrow-candidate {
+.selfgrow-candidate-modal button.selfgrow-candidate {
+  align-content: start;
   align-items: stretch;
   border: 1px solid var(--background-modifier-border);
   border-radius: var(--radius-m);
+  box-sizing: border-box;
   cursor: pointer;
   display: grid;
   gap: var(--size-4-1);
+  grid-template-columns: minmax(0, 1fr);
+  height: auto;
+  justify-content: stretch;
+  line-height: 1.4;
   margin: var(--size-4-2) 0;
   min-height: 44px;
+  min-width: 0;
   padding: var(--size-4-3);
   text-align: left;
+  white-space: normal;
   width: 100%;
-  box-sizing: border-box;
-  min-width: 0;
 }
 
 .selfgrow-candidate-name {
@@ -209,8 +215,10 @@
   flex-wrap: wrap;
   font-weight: var(--font-semibold);
   gap: var(--size-4-2);
+  justify-content: flex-start;
   min-width: 0;
   overflow-wrap: anywhere;
+  text-align: left;
   word-break: break-word;
 }
 
@@ -235,6 +243,9 @@
 .selfgrow-candidate-meta {
   color: var(--text-faint);
   font-size: var(--font-ui-smaller);
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: left;
 }
 
 .selfgrow-inbox-row {
