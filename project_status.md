@@ -1,10 +1,12 @@
 # SelfGrow Project Status
 
-Last updated: 2026-08-18  
+Last updated: 2026-08-19
 Current product: SelfGrow for Obsidian  
 Current phase: V5 feature development complete — stabilization, tuning, and bug fixing
 
-## 0. Latest stabilization pass (2026-08-17)
+## 0. Latest stabilization pass (2026-08-19)
+
+- GitHub candidate-layout fix: repository-name matching now overrides Obsidian's generic button layout with a scoped auto-height, single-column grid. Candidate names, optional descriptions, and star/update metadata remain left-aligned inside each card, long repository names wrap, and metadata can no longer fall below the button boundary when a description is absent. The change is CSS-only and adds no dependency or runtime behavior. Formatting, lint, all 267 tests in 34 files, source/test typechecking, and production build pass; the unchanged JavaScript bundle is 523,367 bytes raw and 126,424 bytes gzip. Real Obsidian acceptance remains for the reported desktop candidate set and long names at narrow mobile width; this fix branch has not been installed into either live plugin directory.
 
 - Collection folders are now extensible: `Project`, `Skill`, and `Experience` remain the built-in choices, while any valid first-level Raw folder is listed and can be created directly from Collect. Internal `Inbox` and `Attachments` paths remain protected.
 - Ambiguous GitHub-name selection now closes immediately after a choice, writes the selected repository back into the link field, and waits for a second explicit Save before capture. Candidate names/descriptions wrap and clamp safely on narrow mobile dialogs.
