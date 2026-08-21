@@ -256,7 +256,7 @@ describe('RawEvidenceGenerator', () => {
       category: 'Skill',
       githubQueries: ['Learn Harness Engineering'],
       recommendation: {
-        protocolVersion: '2026-08-21',
+        protocolVersion: '2026-08-22',
         reason: '符合可复用、可验证和实际工程价值偏好。',
         score: 82,
       },
