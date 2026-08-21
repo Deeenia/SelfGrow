@@ -60,6 +60,13 @@ D:\ai_test\test\test\.obsidian\plugins\selfgrow\
 - [ ] Android：完全重启后插件仍处于启用状态。
 - [ ] Android：可看到 PC 端通过 Obsidian Sync 同步过来的 `SelfGrow.md` 和 `Wiki/`。
 - [ ] Android：核心兼容冒烟测试。
+- [x] 2026-08-20：完成 iOS 静态兼容性排查：源码无 Node/Electron 导入；构建元数据中禁用导入为 0；`isDesktopOnly: false`；使用 Obsidian mobile-safe API；Review 含 Pointer/Touch 双事件处理；移动端不会主动初始化 Wiki 目录。
+- [x] 2026-08-20：iOS 确认 Obsidian Sync 插件同步可用。
+- [x] 2026-08-20：iOS `test_remote` Remote Vault 可同步得到 SelfGrow。
+- [x] 2026-08-20：iOS 第三方插件列表可识别并启用 SelfGrow。
+- [x] 2026-08-20：iOS Queue / Review / 设置页可打开。
+- [x] 2026-08-20：iOS 完全重启后插件仍正常。
+- [x] 2026-08-20：用户确认 iOS 端同步与运行正常。
 
 ### Git status
 
@@ -69,4 +76,4 @@ D:\ai_test\test\test\.obsidian\plugins\selfgrow\
   - `afbad02 chore: ignore generated release artifacts`
   - `f2cc819 docs: add changelog for test build and verification`
 - 本地 `main` 仍领先 `origin/main` 两个提交，暂不直接推送 `main`。
-- 协作者 UI 分支尚未在 `origin` 出现。
+- 协作者 UI 分支已在 `origin` 出现：`feature/ui-stabilization`。
