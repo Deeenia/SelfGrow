@@ -157,12 +157,20 @@ export class SelfGrowSettingTab extends PluginSettingTab {
         .setValue(endpoint.preset)
         .onChange((value) => {
           if (!isEndpointPreset(value)) return;
-          void this.#updateEndpoint(key, endpointPresetPatch(value));
+          void this.#updateEndpoint(key, endpointPresetPatch(value)).then(() => {
+            this.#chatModels = [];
+            this.#chatModelsSignature = '';
+            this.update();
+          });
         }),
     );
     new Setting(this.#container()).setName(copy.baseURL).addText((component) =>
       component.setValue(endpoint.baseURL).onChange((value) => {
-        void this.#updateEndpoint(key, { baseURL: value.trim() });
+        void this.#updateEndpoint(key, { baseURL: value.trim() }).then(() => {
+          this.#chatModels = [];
+          this.#chatModelsSignature = '';
+          this.update();
+        });
       }),
     );
     this.#renderModelSetting(copy, key, endpoint);
