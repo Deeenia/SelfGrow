@@ -41,8 +41,8 @@ describe('ModelCatalogService', () => {
     const models = await service.list('zh-CN');
 
     expect(models.map((model) => model.id)).toEqual(['deepseek-v4-flash', 'unknown-model']);
-    expect(models[0]?.description).toContain('Raw');
-    expect(models[1]?.description).toContain('未收录');
+    expect(models[0]?.description).toContain('推荐');
+    expect(models[1]?.description).toBe('');
     expect(http.calls[0]?.method).toBe('GET');
     expect(http.calls[0]?.headers?.['Authorization']).toBe('[REDACTED]');
   });
@@ -53,7 +53,7 @@ describe('ModelCatalogService', () => {
     );
   });
 
-  it('describes known Kimi models and uses a provider-aware fallback', async () => {
+  it('describes known Kimi models and omits filler for unknown models', async () => {
     const http = new FixtureHTTPTransport([
       {
         method: 'GET',
@@ -77,9 +77,8 @@ describe('ModelCatalogService', () => {
     const models = await service.list('zh-CN');
 
     expect(models.find((model) => model.id === 'kimi-k3')?.description).toContain('多模态');
-    expect(models.find((model) => model.id === 'kimi-future-model')?.description).toContain(
-      'Kimi 模型',
-    );
+    expect(models.find((model) => model.id === 'kimi-k3')?.description).toContain('推荐');
+    expect(models.find((model) => model.id === 'kimi-future-model')?.description).toBe('');
   });
 
   it('requires a saved SecretStorage key', async () => {

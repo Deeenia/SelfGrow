@@ -29,8 +29,8 @@ export interface ModelCatalogServiceDependencies {
 
 /**
  * Loads available model IDs from an OpenAI-compatible `/models` endpoint and
- * decorates them with a small local description catalog. Unlisted models stay
- * selectable with a neutral description so the provider list never blocks use.
+ * decorates the known subset with a compact local profile. Unknown models stay
+ * selectable without a description instead of showing generic filler text.
  */
 export class ModelCatalogService {
   readonly #dependencies: ModelCatalogServiceDependencies;
@@ -96,10 +96,9 @@ export class ModelCatalogService {
     }
 
     const payload: z.infer<typeof modelsResponseSchema> = parsed.data;
-    const provider = providerFamily(baseURL);
     return [...new Set<string>(payload.data.map((item) => item.id))]
       .sort((left, right) => left.localeCompare(right))
-      .map((id) => ({ description: modelDescription(id, language, provider), id }));
+      .map((id) => ({ description: modelDescription(id, language), id }));
   }
 }
 
@@ -129,125 +128,93 @@ function parseJSON(value: string): unknown {
   }
 }
 
-const MODEL_DESCRIPTIONS: Readonly<Record<string, { en: string; 'zh-CN': string }>> = {
+type LocalizedText = { en: string; 'zh-CN': string };
+
+interface ModelProfile {
+  context?: string;
+  multimodal?: boolean;
+  positioning: LocalizedText;
+  recommended?: boolean;
+}
+
+const MODEL_PROFILES: Readonly<Record<string, ModelProfile>> = {
   'deepseek-chat': {
-    en: 'DeepSeek general chat model.',
-    'zh-CN': 'DeepSeek 通用对话模型。',
+    positioning: { en: 'general-purpose', 'zh-CN': '通用模型' },
   },
   'deepseek-reasoner': {
-    en: 'DeepSeek reasoning model.',
-    'zh-CN': 'DeepSeek 推理模型。',
+    positioning: { en: 'reasoning', 'zh-CN': '推理模型' },
   },
   'deepseek-v4-flash': {
-    en: 'DeepSeek low-cost flash model; good for Raw recognition.',
-    'zh-CN': 'DeepSeek 高性价比快速模型，适合 Raw 识别。',
+    positioning: { en: 'low-cost fast', 'zh-CN': '高性价比快速' },
+    recommended: true,
   },
   'gpt-4.1': {
-    en: 'OpenAI general-purpose model.',
-    'zh-CN': 'OpenAI 通用模型。',
+    positioning: { en: 'general-purpose', 'zh-CN': '通用模型' },
   },
   'gpt-4.1-mini': {
-    en: 'OpenAI lightweight fast model.',
-    'zh-CN': 'OpenAI 轻量快速模型。',
+    positioning: { en: 'lightweight fast', 'zh-CN': '轻量快速' },
   },
   'gpt-5.1': {
-    en: 'OpenAI flagship-class model.',
-    'zh-CN': 'OpenAI 旗舰级模型。',
+    positioning: { en: 'flagship', 'zh-CN': '旗舰模型' },
+    recommended: true,
   },
   'gpt-5.6-sol': {
-    en: 'OpenAI coding-agent model; high token usage.',
-    'zh-CN': 'OpenAI 编码 Agent 模型，用量较高。',
+    positioning: { en: 'coding agent, high usage', 'zh-CN': '编码 Agent，用量较高' },
   },
   'qwen-max': {
-    en: 'Qwen flagship model with strong Chinese performance.',
-    'zh-CN': '通义千问旗舰模型，中文能力较强。',
+    positioning: { en: 'flagship', 'zh-CN': '旗舰模型' },
+    recommended: true,
   },
   'qwen-plus': {
-    en: 'Qwen balanced model.',
-    'zh-CN': '通义千问均衡版模型。',
+    positioning: { en: 'balanced', 'zh-CN': '均衡模型' },
   },
   'qwen-turbo': {
-    en: 'Qwen fast low-latency model.',
-    'zh-CN': '通义千问快速响应模型。',
+    positioning: { en: 'fast response', 'zh-CN': '快速响应' },
   },
   'kimi-k3': {
-    en: 'Kimi native multimodal model for images and long contexts.',
-    'zh-CN': 'Kimi 原生多模态模型，适合图片与长上下文任务。',
+    multimodal: true,
+    positioning: { en: 'flagship', 'zh-CN': '旗舰模型' },
+    recommended: true,
   },
   'kimi-latest': {
-    en: 'Kimi latest model pointer maintained by Moonshot.',
-    'zh-CN': 'Kimi 当前最新模型，由服务商动态指向。',
+    positioning: { en: 'latest pointer', 'zh-CN': '最新动态' },
   },
   'moonshot-v1-8k': {
-    en: 'Early Moonshot model with 8K context.',
-    'zh-CN': 'Moonshot 早期模型，8K 上下文。',
+    context: '8K',
+    positioning: { en: 'legacy', 'zh-CN': '早期模型' },
   },
   'moonshot-v1-32k': {
-    en: 'Early Moonshot model with 32K context.',
-    'zh-CN': 'Moonshot 早期模型，32K 上下文。',
+    context: '32K',
+    positioning: { en: 'legacy', 'zh-CN': '早期模型' },
   },
   'moonshot-v1-128k': {
-    en: 'Early Moonshot model with 128K context.',
-    'zh-CN': 'Moonshot 早期模型，128K 上下文。',
+    context: '128K',
+    positioning: { en: 'legacy', 'zh-CN': '早期模型' },
   },
   'kimi-k2': {
-    en: 'Kimi K2 general model.',
-    'zh-CN': 'Kimi K2 通用模型。',
+    positioning: { en: 'general-purpose', 'zh-CN': '通用模型' },
   },
   'kimi-k2-turbo-preview': {
-    en: 'Kimi K2 fast preview model.',
-    'zh-CN': 'Kimi K2 快速预览模型。',
+    positioning: { en: 'fast preview', 'zh-CN': '快速预览' },
   },
   'kimi-k2-thinking': {
-    en: 'Kimi K2 thinking model.',
-    'zh-CN': 'Kimi K2 思考模型。',
+    positioning: { en: 'thinking', 'zh-CN': '思考模型' },
   },
 };
 
-type ModelProviderFamily = 'custom' | 'deepseek' | 'kimi' | 'openai' | 'qwen';
-
-function providerFamily(baseURL: string): ModelProviderFamily {
-  const hostname = new URL(baseURL.trim()).hostname.toLowerCase();
-  if (hostname === 'api.deepseek.com' || hostname.endsWith('.deepseek.com')) return 'deepseek';
-  if (hostname === 'api.openai.com' || hostname.endsWith('.openai.com')) return 'openai';
-  if (hostname === 'dashscope.aliyuncs.com' || hostname.endsWith('.aliyuncs.com')) return 'qwen';
-  if (
-    hostname === 'api.moonshot.cn' ||
-    hostname === 'api.moonshot.ai' ||
-    hostname.endsWith('.moonshot.cn') ||
-    hostname.endsWith('.moonshot.ai')
-  ) {
-    return 'kimi';
+function modelDescription(id: string, language: Language): string {
+  const profile = MODEL_PROFILES[id];
+  if (profile === undefined) return '';
+  const parts: string[] = [];
+  if (profile.multimodal === true) {
+    parts.push(language === 'zh-CN' ? '多模态' : 'multimodal');
   }
-  return 'custom';
+  if (profile.context !== undefined) {
+    parts.push(language === 'zh-CN' ? `${profile.context} 上下文` : `${profile.context} context`);
+  }
+  parts.push(profile.positioning[language]);
+  if (profile.recommended === true) {
+    parts.push(language === 'zh-CN' ? '推荐' : 'recommended');
+  }
+  return parts.join(' · ');
 }
-
-function modelDescription(id: string, language: Language, provider: ModelProviderFamily): string {
-  const entry = MODEL_DESCRIPTIONS[id];
-  if (entry !== undefined) return entry[language];
-  const fallback = PROVIDER_FALLBACKS[provider];
-  return fallback[language];
-}
-
-const PROVIDER_FALLBACKS: Readonly<Record<ModelProviderFamily, { en: string; 'zh-CN': string }>> = {
-  custom: {
-    en: 'Unlisted model; manual use is supported.',
-    'zh-CN': '未收录模型，可手动使用。',
-  },
-  deepseek: {
-    en: 'DeepSeek model. Check the provider documentation for details.',
-    'zh-CN': 'DeepSeek 模型，具体能力以官方文档为准。',
-  },
-  kimi: {
-    en: 'Kimi model. Check the provider documentation for details.',
-    'zh-CN': 'Kimi 模型，具体能力以官方文档为准。',
-  },
-  openai: {
-    en: 'OpenAI model. Check the provider documentation for details.',
-    'zh-CN': 'OpenAI 模型，具体能力以官方文档为准。',
-  },
-  qwen: {
-    en: 'Qwen model. Check the provider documentation for details.',
-    'zh-CN': '通义千问模型，具体能力以官方文档为准。',
-  },
-};
