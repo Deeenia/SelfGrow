@@ -1,5 +1,5 @@
 import { MarkdownView, Notice, Platform, Plugin, TFile, TFolder } from 'obsidian';
-import { ChatConnectionService } from './ai';
+import { ChatConnectionService, ModelCatalogService, type ModelCatalogEntry } from './ai';
 import { SelfGrowError, selfGrowID, vaultPath, type RawCategory, type VaultPath } from './domain';
 import {
   CapturedTextAndGenericExtractor,
@@ -194,6 +194,14 @@ export default class SelfGrowPlugin extends Plugin implements SelfGrowSettingsHo
 
   getSelfGrowSettings(): SelfGrowSettings {
     return this.#settings;
+  }
+
+  async listChatModels(): Promise<ModelCatalogEntry[]> {
+    return new ModelCatalogService({
+      configuration: () => this.#settings.chat,
+      http: new ObsidianHTTPTransport(),
+      secretResolver: new ObsidianSecretResolver(this.app.secretStorage),
+    }).list(this.#settings.language);
   }
 
   async ensureRawFolder(path: string): Promise<void> {

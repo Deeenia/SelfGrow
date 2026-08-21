@@ -1,0 +1,119 @@
+import { describe, expect, it } from 'vitest';
+import { ModelCatalogService, modelsEndpoint } from '../../src/ai';
+import { FakeSecretResolver, FixtureHTTPTransport, OBVIOUSLY_FAKE_SECRET } from '../harness';
+import type { EndpointSettings } from '../../src/settings';
+
+function configuration(overrides: Partial<EndpointSettings> = {}): EndpointSettings {
+  return {
+    baseURL: 'https://api.example.com/v1',
+    connectionTest: null,
+    model: '',
+    preset: 'openai',
+    secretName: 'chat',
+    ...overrides,
+  };
+}
+
+describe('ModelCatalogService', () => {
+  it('loads, sorts, and describes models from the OpenAI-compatible models endpoint', async () => {
+    const http = new FixtureHTTPTransport([
+      {
+        method: 'GET',
+        outcome: {
+          kind: 'response',
+          response: {
+            body: JSON.stringify({
+              data: [{ id: 'deepseek-v4-flash' }, { id: 'unknown-model' }],
+            }),
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          },
+        },
+        url: 'https://api.example.com/v1/models',
+      },
+    ]);
+    const service = new ModelCatalogService({
+      configuration: () => configuration(),
+      http,
+      secretResolver: new FakeSecretResolver({ chat: OBVIOUSLY_FAKE_SECRET }),
+    });
+
+    const models = await service.list('zh-CN');
+
+    expect(models.map((model) => model.id)).toEqual(['deepseek-v4-flash', 'unknown-model']);
+    expect(models[0]?.description).toContain('Raw');
+    expect(models[1]?.description).toContain('δ��¼');
+    expect(http.calls[0]?.method).toBe('GET');
+    expect(http.calls[0]?.headers?.['Authorization']).toBe('[REDACTED]');
+  });
+
+  it('uses the service root, not the chat completions path', () => {
+    expect(modelsEndpoint('https://api.example.com/v1/chat/completions')).toBe(
+      'https://api.example.com/v1/models',
+    );
+  });
+
+  it('requires a saved SecretStorage key', async () => {
+    const service = new ModelCatalogService({
+      configuration: () => configuration(),
+      http: new FixtureHTTPTransport([]),
+      secretResolver: new FakeSecretResolver({}),
+    });
+
+    await expect(service.list('zh-CN')).rejects.toMatchObject({ code: 'SECRET_NOT_FOUND' });
+  });
+
+  it('requires service URL and secret name before any request', async () => {
+    const service = new ModelCatalogService({
+      configuration: () => configuration({ baseURL: '' }),
+      http: new FixtureHTTPTransport([]),
+      secretResolver: new FakeSecretResolver({}),
+    });
+
+    await expect(service.list('zh-CN')).rejects.toMatchObject({
+      code: 'AI_CONFIGURATION_MISSING',
+    });
+  });
+
+  it('maps authentication failures without exposing provider details', async () => {
+    const service = new ModelCatalogService({
+      configuration: () => configuration(),
+      http: new FixtureHTTPTransport([
+        {
+          method: 'GET',
+          outcome: {
+            kind: 'response',
+            response: { body: '{}', headers: {}, status: 401 },
+          },
+          url: 'https://api.example.com/v1/models',
+        },
+      ]),
+      secretResolver: new FakeSecretResolver({ chat: OBVIOUSLY_FAKE_SECRET }),
+    });
+
+    await expect(service.list('zh-CN')).rejects.toMatchObject({
+      code: 'AI_AUTHENTICATION_FAILED',
+    });
+  });
+
+  it('rejects malformed model-list responses', async () => {
+    const service = new ModelCatalogService({
+      configuration: () => configuration(),
+      http: new FixtureHTTPTransport([
+        {
+          method: 'GET',
+          outcome: {
+            kind: 'response',
+            response: { body: '{"data":[]}', headers: {}, status: 200 },
+          },
+          url: 'https://api.example.com/v1/models',
+        },
+      ]),
+      secretResolver: new FakeSecretResolver({ chat: OBVIOUSLY_FAKE_SECRET }),
+    });
+
+    await expect(service.list('zh-CN')).rejects.toMatchObject({
+      code: 'AI_PROTOCOL_UNSUPPORTED',
+    });
+  });
+});
