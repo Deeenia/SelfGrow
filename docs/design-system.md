@@ -78,6 +78,7 @@ Each Raw card shows:
 
 - title
 - high-density preview
+- optional low-emphasis `推荐度 n` / `Fit n` plus one-sentence advisory reason when an AI score exists
 - source host/platform when present
 - image thumbnail when present
 - last content-update time
@@ -110,6 +111,8 @@ Use text plus icon:
 ```
 
 Do not show fake percentages. A selected card remains visibly selected after completion. Cancelling it states that existing Wiki knowledge will remain.
+
+Recommendation scores are advisory metadata, not state or a primary action. Cards without a valid AI score show nothing in its place. Never use recommendation color, ordering, or automation to override the user's explicit selection decision.
 
 ## 6. Codex Handoff
 
@@ -181,4 +184,4 @@ Keep Chat and extraction settings with SecretStorage selectors and connection te
 - auto-selection or auto-distillation
 - automatic Codex launch
 - inference of personal experience from external content
-- export, PDF, Clear All, goals, streaks, notifications, and recommendations
+- export, PDF, Clear All, goals, streaks, notifications, and automated recommendation feeds

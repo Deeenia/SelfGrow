@@ -111,6 +111,7 @@ describe('Task-046 Raw schema and selection state', () => {
       imagePaths: [],
       platform: 'generic_web',
       previewMarkdown: 'Grounded summary.',
+      recommendation: null,
       sourceURL: 'https://example.test/raw',
       title: 'Test',
     });
@@ -120,6 +121,26 @@ describe('Task-046 Raw schema and selection state', () => {
     expect(rawReviewGroup({ ...raw, distillationStatus: 'completed' })).toBe('completed');
     expect(rawReviewGroup({ ...raw, distillationStatus: 'needs_update' })).toBe('needs_update');
     expect(rawReviewGroup({ ...raw, distillationStatus: 'failed' })).toBe('failed');
+  });
+
+  it('reads a valid advisory recommendation without changing selection state', async () => {
+    const fixture = await createFixture();
+    await fixture.service.migrateAll();
+    await fixture.frontmatter.process(fixture.path, (current) => ({
+      ...current,
+      preference_protocol_version: '2026-08-21',
+      recommendation_reason: '符合可复用、可验证和本地优先的项目偏好。',
+      recommendation_score: 86,
+    }));
+
+    await expect(fixture.service.read(fixture.path)).resolves.toMatchObject({
+      recommendation: {
+        protocolVersion: '2026-08-21',
+        reason: '符合可复用、可验证和本地优先的项目偏好。',
+        score: 86,
+      },
+      wikiSelected: false,
+    });
   });
 
   it('deletes Raw only after confirmation and removes only unreferenced attachments', async () => {

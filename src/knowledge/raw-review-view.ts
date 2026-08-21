@@ -306,6 +306,22 @@ export class RawReviewView extends ItemView {
     if (card.previewMarkdown.length > 0) {
       body.createEl('p', { cls: 'selfgrow-review-preview', text: card.previewMarkdown });
     }
+    if (card.recommendation !== null) {
+      const recommendation = body.createDiv({
+        attr: {
+          'aria-label': copy.recommendationLabel(
+            card.recommendation.score,
+            card.recommendation.reason,
+          ),
+          title: copy.preferenceVersion(card.recommendation.protocolVersion),
+        },
+        cls: 'selfgrow-review-recommendation',
+      });
+      recommendation.createEl('strong', {
+        text: copy.recommendationScore(card.recommendation.score),
+      });
+      recommendation.createSpan({ text: card.recommendation.reason });
+    }
     if (card.imagePaths[0] !== undefined) {
       const file = this.app.vault.getAbstractFileByPath(card.imagePaths[0]);
       if (file instanceof TFile) {
@@ -592,6 +608,10 @@ const COPY = {
     page: (current: number, total: number) => `${current} / ${total}`,
     pagination: 'Raw card pages',
     previousPage: 'Previous page',
+    preferenceVersion: (version: string) => `Preference protocol ${version}`,
+    recommendationLabel: (score: number, reason: string) =>
+      `Advisory relevance ${score} out of 100. ${reason}`,
+    recommendationScore: (score: number) => `Fit ${score}`,
     review: 'Review',
     select: 'Select for distillation',
     states: {
@@ -637,6 +657,9 @@ const COPY = {
     page: (current: number, total: number) => `${current} / ${total}`,
     pagination: 'Raw 卡片分页',
     previousPage: '上一页',
+    preferenceVersion: (version: string) => `偏好协议 ${version}`,
+    recommendationLabel: (score: number, reason: string) => `参考推荐度 ${score} 分。${reason}`,
+    recommendationScore: (score: number) => `推荐度 ${score}`,
     review: '筛选',
     select: '选择沉淀',
     states: {

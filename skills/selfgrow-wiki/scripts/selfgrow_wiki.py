@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Discover and safely apply approved SelfGrow Wiki batches."""
+"""Initialize, discover, and safely maintain approved SelfGrow Wiki work."""
 
 from __future__ import annotations
 
@@ -88,6 +88,43 @@ def local_path(root: Path, relative: str) -> Path:
     if candidate != allowed_root and allowed_root not in candidate.parents:
         raise SkillError("Resolved path escapes the allowed content root.")
     return candidate
+
+
+def initialize_repository(root: Path) -> dict[str, Any]:
+    root = root.resolve()
+    if root.parent == root:
+        raise SkillError("SelfGrow root cannot be a filesystem root.")
+    created: list[str] = []
+    directories = [
+        root,
+        *(root / name for name in ["Project", "Skill", "Experience", "Inbox", "Attachments"]),
+    ]
+    wiki = root.parent / "Wiki"
+    directories.extend([wiki, *(wiki / name for name in [*PAGE_FOLDERS.values(), "Assets"])])
+    for path in directories:
+        if path.exists() and not path.is_dir():
+            raise SkillError(f"Repository path is occupied by a file: {path.name}")
+    files = [
+        (wiki / "Index.md", "# SelfGrow Wiki\n"),
+        (wiki / "Log.md", "# SelfGrow Wiki Log\n"),
+    ]
+    for path, _content in files:
+        if path.exists() and not path.is_file():
+            raise SkillError(f"Repository file path is occupied: {path.name}")
+    for path in directories:
+        if not path.exists():
+            path.mkdir(parents=True)
+            created.append(str(path))
+    for path, content in files:
+        if not path.exists():
+            path.write_text(content, encoding="utf-8")
+            created.append(str(path))
+    return {
+        "selfgrow_root": str(root),
+        "wiki_root": str(wiki),
+        "created": created,
+        "writes_performed": len(created) > 0,
+    }
 
 
 def discover(root: Path) -> dict[str, Any]:
@@ -687,14 +724,20 @@ def clean_broken_raw_links(root: Path) -> dict[str, Any]:
 def self_test() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory) / "SelfGrow"
-        for folder in ["Knowledge", "Attachments"]:
-            (root / folder).mkdir(parents=True, exist_ok=True)
+        initialized = initialize_repository(root)
+        assert initialized["writes_performed"] is True
+        assert initialize_repository(root)["writes_performed"] is False
+        blocked_root = Path(directory) / "blocked" / "Raw"
+        blocked_index = blocked_root.parent / "Wiki" / "Index.md"
+        blocked_index.mkdir(parents=True)
+        try:
+            initialize_repository(blocked_root)
+            raise AssertionError("Initialization conflict should fail before writing.")
+        except SkillError:
+            pass
+        assert not blocked_root.exists()
+        (root / "Knowledge").mkdir()
         wiki = root.parent / "Wiki"
-        wiki.mkdir()
-        for folder in [*PAGE_FOLDERS.values(), "Assets"]:
-            (wiki / folder).mkdir()
-        (wiki / "Index.md").write_text("# SelfGrow Wiki\n", encoding="utf-8")
-        (wiki / "Log.md").write_text("# SelfGrow Wiki Log\n", encoding="utf-8")
         body = "# Raw\n\n## AI 摘要\n\n测试摘要。\n"
         digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
         raw = "\n".join(
@@ -837,12 +880,12 @@ def self_test() -> None:
 def parser() -> argparse.ArgumentParser:
     value = argparse.ArgumentParser(description=__doc__)
     commands = value.add_subparsers(dest="command", required=True)
-    for name in ["discover", "validate", "apply", "maintain", "clean"]:
+    for name in ["init", "discover", "validate", "apply", "maintain", "clean"]:
         command = commands.add_parser(name)
         command.add_argument("--selfgrow-root", required=True, type=Path)
         if name in {"validate", "apply"}:
             command.add_argument("--plan", required=True, type=Path)
-        if name in {"apply", "clean"}:
+        if name in {"init", "apply", "clean"}:
             command.add_argument("--approved", action="store_true")
     commands.add_parser("self-test")
     return value
@@ -854,7 +897,11 @@ def main() -> int:
         if arguments.command == "self-test":
             self_test()
             return 0
-        if arguments.command == "discover":
+        if arguments.command == "init":
+            if not arguments.approved:
+                raise SkillError("Initialization requires explicit --approved after user confirmation.")
+            result = initialize_repository(arguments.selfgrow_root)
+        elif arguments.command == "discover":
             result = discover(arguments.selfgrow_root)
         elif arguments.command == "maintain":
             result = maintenance_report(arguments.selfgrow_root)

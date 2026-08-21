@@ -23,7 +23,7 @@ function chatRoute(
   const outcomes = contents.map((content) => ({
     kind: 'response' as const,
     response: {
-      body: JSON.stringify({ choices: [{ message: { content } }] }),
+      body: JSON.stringify({ choices: [{ message: { content: withRecommendation(content) } }] }),
       headers: {},
       status: 200,
     },
@@ -33,6 +33,19 @@ function chatRoute(
     outcome: outcomes.length === 1 ? (outcomes[0] as (typeof outcomes)[number]) : outcomes,
     url: 'https://api.example.com/v1/chat/completions',
   };
+}
+
+function withRecommendation(content: string): string {
+  try {
+    const parsed = JSON.parse(content) as Record<string, unknown>;
+    return JSON.stringify({
+      recommendationReason: '符合可复用、可验证和实际工程价值偏好。',
+      recommendationScore: 82,
+      ...parsed,
+    });
+  } catch {
+    return content;
+  }
 }
 
 function generator(http: FixtureHTTPTransport): RawEvidenceGenerator {
@@ -58,6 +71,7 @@ describe('RawEvidenceGenerator', () => {
       coreKnowledge: [{ title: 'Extracted text' }],
       githubQueries: [],
       outputLanguage: 'en',
+      recommendation: null,
       recognitionSource: 'local',
       title: 'Fixture source',
     });
@@ -241,6 +255,11 @@ describe('RawEvidenceGenerator', () => {
     expect(result).toMatchObject({
       category: 'Skill',
       githubQueries: ['Learn Harness Engineering'],
+      recommendation: {
+        protocolVersion: '2026-08-21',
+        reason: '符合可复用、可验证和实际工程价值偏好。',
+        score: 82,
+      },
       recognitionSource: 'ai',
       summaryMarkdown:
         '课程通过任务规范、上下文供给、执行环境和验证反馈，为 AI Agent 建立可验证的工程闭环。',
@@ -251,8 +270,9 @@ describe('RawEvidenceGenerator', () => {
       max_tokens?: number;
       messages?: Array<{ content?: string }>;
     };
-    expect(request.max_tokens).toBe(320);
+    expect(request.max_tokens).toBe(420);
     expect(request.messages?.[0]?.content).toContain(CONTENT.body);
+    expect(request.messages?.[0]?.content).toContain('preference_protocol');
   });
 
   it('accepts a concise one-sentence Chinese AI preview', async () => {
@@ -297,6 +317,23 @@ describe('RawEvidenceGenerator', () => {
     expect(http.calls).toHaveLength(2);
   });
 
+  it('rejects an out-of-range recommendation score', async () => {
+    const invalid = JSON.stringify({
+      category: 'Project',
+      githubQueries: [],
+      preview: '提供可验证的工程实践，并说明适用范围与限制条件。',
+      recommendationReason: '与协议中的可验证工程偏好一致。',
+      recommendationScore: 101,
+      title: '工程实践',
+    });
+    const http = new FixtureHTTPTransport([chatRoute(invalid, invalid)]);
+
+    await expect(generator(http).generate(CONTENT, 'zh-CN')).rejects.toMatchObject({
+      code: 'AI_OUTPUT_INVALID',
+    });
+    expect(http.calls).toHaveLength(2);
+  });
+
   it('rejects a cliché title and uses the repaired card', async () => {
     const http = new FixtureHTTPTransport([
       chatRoute(
@@ -330,6 +367,7 @@ describe('RawEvidenceGenerator', () => {
     expect(result.card.title.length).toBeGreaterThan(0);
     expect(result.card.preview.length).toBeGreaterThan(0);
     expect(result.card.githubQueries).toEqual([]);
+    expect(result.card.recommendation).toBeNull();
   });
 
   it('requires the stored AI secret in a production-configured generator', async () => {

@@ -1,4 +1,4 @@
 interface:
   display_name: "SelfGrow Wiki"
-  short_description: "Distill approved Raw cards into a linked Wiki"
-  default_prompt: "Use $selfgrow-wiki to propose and apply approved Wiki changes from my selected Raw cards."
+  short_description: "Initialize, distill, and maintain SelfGrow knowledge"
+  default_prompt: "Use $selfgrow-wiki to initialize or maintain my SelfGrow repository, preference protocol, and selected Raw distillation."

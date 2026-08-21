@@ -27,6 +27,7 @@ function card(path: string, fields: { preview?: string; sourceURL?: string; titl
     path: vaultPath(path),
     platform: 'generic_web',
     previewMarkdown: fields.preview ?? '',
+    recommendation: null,
     sourceURL: fields.sourceURL ?? '',
     title: fields.title ?? 'Card',
     wikiSelected: false,

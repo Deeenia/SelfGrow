@@ -14,6 +14,7 @@ describe('domain models', () => {
       coreKnowledge: [{ explanationMarkdown: 'Path.', title: 'Method' }],
       githubQueries: [],
       outputLanguage: 'en',
+      recommendation: null,
       recognitionSource: 'local',
       sourceLanguage: 'en',
       summaryMarkdown: 'Dense summary.',
