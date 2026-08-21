@@ -53,6 +53,35 @@ describe('ModelCatalogService', () => {
     );
   });
 
+  it('describes known Kimi models and uses a provider-aware fallback', async () => {
+    const http = new FixtureHTTPTransport([
+      {
+        method: 'GET',
+        outcome: {
+          kind: 'response',
+          response: {
+            body: JSON.stringify({ data: [{ id: 'kimi-k3' }, { id: 'kimi-future-model' }] }),
+            headers: {},
+            status: 200,
+          },
+        },
+        url: 'https://api.moonshot.cn/v1/models',
+      },
+    ]);
+    const service = new ModelCatalogService({
+      configuration: () => configuration({ baseURL: 'https://api.moonshot.cn/v1' }),
+      http,
+      secretResolver: new FakeSecretResolver({ chat: OBVIOUSLY_FAKE_SECRET }),
+    });
+
+    const models = await service.list('zh-CN');
+
+    expect(models.find((model) => model.id === 'kimi-k3')?.description).toContain('多模态');
+    expect(models.find((model) => model.id === 'kimi-future-model')?.description).toContain(
+      'Kimi 模型',
+    );
+  });
+
   it('requires a saved SecretStorage key', async () => {
     const service = new ModelCatalogService({
       configuration: () => configuration(),

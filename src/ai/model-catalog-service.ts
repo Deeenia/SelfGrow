@@ -96,9 +96,10 @@ export class ModelCatalogService {
     }
 
     const payload: z.infer<typeof modelsResponseSchema> = parsed.data;
+    const provider = providerFamily(baseURL);
     return [...new Set<string>(payload.data.map((item) => item.id))]
       .sort((left, right) => left.localeCompare(right))
-      .map((id) => ({ description: modelDescription(id, language), id }));
+      .map((id) => ({ description: modelDescription(id, language, provider), id }));
   }
 }
 
@@ -169,12 +170,84 @@ const MODEL_DESCRIPTIONS: Readonly<Record<string, { en: string; 'zh-CN': string 
     en: 'Qwen fast low-latency model.',
     'zh-CN': '通义千问快速响应模型。',
   },
+  'kimi-k3': {
+    en: 'Kimi native multimodal model for images and long contexts.',
+    'zh-CN': 'Kimi 原生多模态模型，适合图片与长上下文任务。',
+  },
+  'kimi-latest': {
+    en: 'Kimi latest model pointer maintained by Moonshot.',
+    'zh-CN': 'Kimi 当前最新模型，由服务商动态指向。',
+  },
+  'moonshot-v1-8k': {
+    en: 'Early Moonshot model with 8K context.',
+    'zh-CN': 'Moonshot 早期模型，8K 上下文。',
+  },
+  'moonshot-v1-32k': {
+    en: 'Early Moonshot model with 32K context.',
+    'zh-CN': 'Moonshot 早期模型，32K 上下文。',
+  },
+  'moonshot-v1-128k': {
+    en: 'Early Moonshot model with 128K context.',
+    'zh-CN': 'Moonshot 早期模型，128K 上下文。',
+  },
+  'kimi-k2': {
+    en: 'Kimi K2 general model.',
+    'zh-CN': 'Kimi K2 通用模型。',
+  },
+  'kimi-k2-turbo-preview': {
+    en: 'Kimi K2 fast preview model.',
+    'zh-CN': 'Kimi K2 快速预览模型。',
+  },
+  'kimi-k2-thinking': {
+    en: 'Kimi K2 thinking model.',
+    'zh-CN': 'Kimi K2 思考模型。',
+  },
 };
 
-function modelDescription(id: string, language: Language): string {
+type ModelProviderFamily = 'custom' | 'deepseek' | 'kimi' | 'openai' | 'qwen';
+
+function providerFamily(baseURL: string): ModelProviderFamily {
+  const hostname = new URL(baseURL.trim()).hostname.toLowerCase();
+  if (hostname === 'api.deepseek.com' || hostname.endsWith('.deepseek.com')) return 'deepseek';
+  if (hostname === 'api.openai.com' || hostname.endsWith('.openai.com')) return 'openai';
+  if (hostname === 'dashscope.aliyuncs.com' || hostname.endsWith('.aliyuncs.com')) return 'qwen';
+  if (
+    hostname === 'api.moonshot.cn' ||
+    hostname === 'api.moonshot.ai' ||
+    hostname.endsWith('.moonshot.cn') ||
+    hostname.endsWith('.moonshot.ai')
+  ) {
+    return 'kimi';
+  }
+  return 'custom';
+}
+
+function modelDescription(id: string, language: Language, provider: ModelProviderFamily): string {
   const entry = MODEL_DESCRIPTIONS[id];
   if (entry !== undefined) return entry[language];
-  return language === 'zh-CN'
-    ? '未收录模型，可手动使用。'
-    : 'Unlisted model; manual use is supported.';
+  const fallback = PROVIDER_FALLBACKS[provider];
+  return fallback[language];
 }
+
+const PROVIDER_FALLBACKS: Readonly<Record<ModelProviderFamily, { en: string; 'zh-CN': string }>> = {
+  custom: {
+    en: 'Unlisted model; manual use is supported.',
+    'zh-CN': '未收录模型，可手动使用。',
+  },
+  deepseek: {
+    en: 'DeepSeek model. Check the provider documentation for details.',
+    'zh-CN': 'DeepSeek 模型，具体能力以官方文档为准。',
+  },
+  kimi: {
+    en: 'Kimi model. Check the provider documentation for details.',
+    'zh-CN': 'Kimi 模型，具体能力以官方文档为准。',
+  },
+  openai: {
+    en: 'OpenAI model. Check the provider documentation for details.',
+    'zh-CN': 'OpenAI 模型，具体能力以官方文档为准。',
+  },
+  qwen: {
+    en: 'Qwen model. Check the provider documentation for details.',
+    'zh-CN': '通义千问模型，具体能力以官方文档为准。',
+  },
+};
