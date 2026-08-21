@@ -147,7 +147,13 @@ export class SelfGrowSettingTab extends PluginSettingTab {
     new Setting(this.#container()).setName(name).setHeading();
     new Setting(this.#container()).setName(copy.provider).addDropdown((component) =>
       component
-        .addOptions({ custom: 'Custom', deepseek: 'DeepSeek', openai: 'OpenAI', qwen: 'Qwen' })
+        .addOptions({
+          custom: 'Custom',
+          deepseek: 'DeepSeek',
+          kimi: 'Kimi',
+          openai: 'OpenAI',
+          qwen: 'Qwen',
+        })
         .setValue(endpoint.preset)
         .onChange((value) => {
           if (!isEndpointPreset(value)) return;
@@ -355,7 +361,13 @@ function modelListSignature(endpoint: SelfGrowSettings['chat']): string {
 }
 
 function isEndpointPreset(value: string): value is SelfGrowSettings['chat']['preset'] {
-  return value === 'openai' || value === 'deepseek' || value === 'qwen' || value === 'custom';
+  return (
+    value === 'openai' ||
+    value === 'deepseek' ||
+    value === 'qwen' ||
+    value === 'kimi' ||
+    value === 'custom'
+  );
 }
 
 function endpointPresetPatch(
@@ -364,6 +376,7 @@ function endpointPresetPatch(
   const baseURLs = {
     custom: '',
     deepseek: 'https://api.deepseek.com',
+    kimi: 'https://api.moonshot.cn/v1',
     openai: 'https://api.openai.com/v1',
     qwen: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
   } as const;
