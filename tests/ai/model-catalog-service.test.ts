@@ -42,7 +42,7 @@ describe('ModelCatalogService', () => {
 
     expect(models.map((model) => model.id)).toEqual(['deepseek-v4-flash', 'unknown-model']);
     expect(models[0]?.description).toContain('Raw');
-    expect(models[1]?.description).toContain('δ��¼');
+    expect(models[1]?.description).toContain('未收录');
     expect(http.calls[0]?.method).toBe('GET');
     expect(http.calls[0]?.headers?.['Authorization']).toBe('[REDACTED]');
   });

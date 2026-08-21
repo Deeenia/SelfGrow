@@ -47,7 +47,7 @@ export class ModelCatalogService {
       throw new SelfGrowError(
         'AI_CONFIGURATION_MISSING',
         language === 'zh-CN'
-          ? '������д�����ַ������ SecretStorage ��Կ��'
+          ? '请先填写服务地址并保存 SecretStorage 密钥。'
           : 'Fill in the service URL and save a SecretStorage key first.',
       );
     }
@@ -57,7 +57,7 @@ export class ModelCatalogService {
       throw new SelfGrowError(
         'SECRET_NOT_FOUND',
         language === 'zh-CN'
-          ? '��ǰ Vault ���豸δ�ҵ� API ��Կ�������±��档'
+          ? '当前 Vault 或设备未找到 API 密钥，请重新保存。'
           : 'The API key was not found in this Vault or device. Save it again.',
       );
     }
@@ -73,14 +73,16 @@ export class ModelCatalogService {
     if (response.status === 401 || response.status === 403) {
       throw new SelfGrowError(
         'AI_AUTHENTICATION_FAILED',
-        language === 'zh-CN' ? 'ģ���б�����ʧ�ܣ�API ��Կ��Ч��' : 'Model list failed: invalid API key.',
+        language === 'zh-CN'
+          ? '模型列表加载失败：API 密钥无效。'
+          : 'Model list failed: invalid API key.',
       );
     }
     if (response.status < 200 || response.status >= 300) {
       throw new SelfGrowError(
         'AI_CONNECTION_TEST_FAILED',
         language === 'zh-CN'
-          ? 'ģ���б�����ʧ�ܣ���������ַ��'
+          ? '模型列表加载失败，请检查服务地址。'
           : 'Model list failed. Check the service URL.',
         { status: response.status },
       );
@@ -129,48 +131,50 @@ function parseJSON(value: string): unknown {
 const MODEL_DESCRIPTIONS: Readonly<Record<string, { en: string; 'zh-CN': string }>> = {
   'deepseek-chat': {
     en: 'DeepSeek general chat model.',
-    'zh-CN': 'DeepSeek ͨ�öԻ�ģ�͡�',
+    'zh-CN': 'DeepSeek 通用对话模型。',
   },
   'deepseek-reasoner': {
     en: 'DeepSeek reasoning model.',
-    'zh-CN': 'DeepSeek ����ģ�͡�',
+    'zh-CN': 'DeepSeek 推理模型。',
   },
   'deepseek-v4-flash': {
     en: 'DeepSeek low-cost flash model; good for Raw recognition.',
-    'zh-CN': 'DeepSeek ���Լ۱ȿ���ģ�ͣ��ʺ� Raw ʶ��',
+    'zh-CN': 'DeepSeek 高性价比快速模型，适合 Raw 识别。',
   },
   'gpt-4.1': {
     en: 'OpenAI general-purpose model.',
-    'zh-CN': 'OpenAI ͨ��ģ�͡�',
+    'zh-CN': 'OpenAI 通用模型。',
   },
   'gpt-4.1-mini': {
     en: 'OpenAI lightweight fast model.',
-    'zh-CN': 'OpenAI ��������ģ�͡�',
+    'zh-CN': 'OpenAI 轻量快速模型。',
   },
   'gpt-5.1': {
     en: 'OpenAI flagship-class model.',
-    'zh-CN': 'OpenAI �콢��ģ�͡�',
+    'zh-CN': 'OpenAI 旗舰级模型。',
   },
   'gpt-5.6-sol': {
     en: 'OpenAI coding-agent model; high token usage.',
-    'zh-CN': 'OpenAI ���� Agent ģ�ͣ������ϸߡ�',
+    'zh-CN': 'OpenAI 编码 Agent 模型，用量较高。',
   },
   'qwen-max': {
     en: 'Qwen flagship model with strong Chinese performance.',
-    'zh-CN': 'ͨ��ǧ���콢ģ�ͣ�����������ǿ��',
+    'zh-CN': '通义千问旗舰模型，中文能力较强。',
   },
   'qwen-plus': {
     en: 'Qwen balanced model.',
-    'zh-CN': 'ͨ��ǧ�ʾ����ģ�͡�',
+    'zh-CN': '通义千问均衡版模型。',
   },
   'qwen-turbo': {
     en: 'Qwen fast low-latency model.',
-    'zh-CN': 'ͨ��ǧ�ʿ�����Ӧģ�͡�',
+    'zh-CN': '通义千问快速响应模型。',
   },
 };
 
 function modelDescription(id: string, language: Language): string {
   const entry = MODEL_DESCRIPTIONS[id];
   if (entry !== undefined) return entry[language];
-  return language === 'zh-CN' ? 'δ��¼ģ�ͣ����ֶ�ʹ�á�' : 'Unlisted model; manual use is supported.';
+  return language === 'zh-CN'
+    ? '未收录模型，可手动使用。'
+    : 'Unlisted model; manual use is supported.';
 }
