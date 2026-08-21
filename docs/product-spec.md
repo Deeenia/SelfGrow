@@ -68,7 +68,7 @@ Every new text, link, and GitHub input produces one AI recognition card after th
 
 GitHub name completion applies only to `Project` and `Skill` inputs without a URL: the GitHub Search API is queried with bounded terms (original name, stripped name, `skill` variant, owner/repo), candidates are ranked by exact repo-name match, owner match, description/README mention, archive status, recency, and weak star signal. A single high-confidence exact match is adopted automatically; otherwise up to three candidates are shown for user confirmation; with no reliable result the original input is kept and the user is told `未找到可靠 GitHub 仓库` — no URL is fabricated. `Experience` input is never force-searched because of technical-looking words.
 
-Completed Inbox captures disappear immediately. Inbox retains only waiting, incomplete, and failed work.
+On mobile, the foreground queued/extracting/generating capture is represented by a centered translucent progress ring showing its existing durable stage percentage and localized stage text, outside the bottom-navbar region. The corresponding Inbox row keeps its identity and actions but does not repeat the progress line. Waiting-network, waiting-configuration, incomplete, and failed captures stay as ordinary cards with their explanation and retry/delete actions; desktop retains the inline progress presentation. Completed Inbox captures disappear immediately.
 
 ## 4. Raw Review
 
@@ -78,7 +78,7 @@ SelfGrow replaces the planned Today and Favorites surfaces with one mobile-safe 
 SelfGrow Review / 知识筛选
 ```
 
-It groups Raw cards into:
+It switches between five counted status pages:
 
 - 未选择
 - 已选择 / 待沉淀
@@ -86,7 +86,7 @@ It groups Raw cards into:
 - 内容已更新
 - 处理失败
 
-Default cards prioritize content and show no checkbox or repeated selection button. Double-tapping a card opens its Raw note; a single tap only gives press feedback, so swipes and opens never compete. Long-pressing a card enters multi-select and selects it, so no separate `多选` button is needed. Outside multi-select, swiping a card right toggles its deposit decision (selects an unselected card, deselects a queued one) and swiping left starts its confirmed-delete flow; distilled cards never swipe right. Multi-select reveals checkboxes and one batch action bar whose `选择沉淀`, `取消沉淀`, and `删除` actions appear only while at least one card is checked, with `完成` always available to exit; swipe gestures are then disabled. The view supports:
+Only the active status renders cards, in deterministic pages of at most 10. Changing folder, status, or page clears temporary selection and exits multi-select. Default cards prioritize content and show no checkbox, repeated selection button, Codex instruction card, or empty batch toolbar. Double-tapping a card opens its Raw note through Obsidian's native navigation history, so the host Back action returns directly to Review; a single tap only gives press feedback, so swipes and opens never compete. Long-pressing a card enters multi-select and selects it, so no separate `多选` button is needed. Outside multi-select, swiping a card right toggles its deposit decision (selects an unselected card, deselects a queued one) and swiping left starts its confirmed-delete flow; distilled cards never swipe right. Multi-select reveals checkboxes and one sticky batch action bar only while at least one card is checked; it shows only the applicable selection/cancellation action plus `删除` and `完成`, follows Obsidian's dynamic mobile bottom spacing with a user-tuned 24 px visual overlap, and exits when the final check is removed. Swipe gestures are disabled while multi-select is active. The view supports:
 
 - batch select for distillation
 - batch cancel selection

@@ -5,11 +5,13 @@ Status: Active mobile-first design
 
 ## 1. Direction
 
-SelfGrow uses Obsidian's shell, themes, editor, properties, graph, backlinks, search, dialogs, and accessibility behavior. Collect and Review are equal navigation buttons and switch directly between the two plugin views.
+SelfGrow uses Obsidian's shell, themes, editor, properties, graph, backlinks, search, dialogs, and accessibility behavior. `收集` and `筛选` are equal navigation buttons and switch directly between the two plugin views. The shared `SelfGrow` brand and navigation provide enough context, so neither view repeats a page title or explanatory subtitle below the tabs.
 
 Principles:
 
 - content before controls
+- restrained Material-style rounded surfaces with thin Obsidian-theme borders
+- one Obsidian accent color and no gradients
 - explicit human admission to the Wiki
 - native Obsidian capability before custom UI
 - no AI spectacle, gamification, recommendation feed, or hidden automation
@@ -51,22 +53,26 @@ It has no separate content/note field. Source bodies, share residue, and OCR nev
 
 The category selector is the only destination choice; there is no free-form folder input and no `Knowledge` default. After the AI recognition card completes it updates the selector and title (unless the user already edited them) and shows the suggested preview; a local fallback is labeled `本地识别` and never masquerades as AI. A bare repository/Skill name without a URL triggers GitHub search on Save for `Project`/`Skill`: unique exact matches are adopted automatically, up to three candidates open in a native 44 px-target list (owner/repo, one-line description, stars, update time, archived badge) for confirmation, and a `未找到可靠 GitHub 仓库` notice keeps the original input when nothing matches.
 
-Saving returns after durable local capture. Extraction and Raw generation continue in the foreground. Completed work leaves Inbox; recoverable failures remain.
+Saving returns after durable local capture. Extraction and Raw generation continue in the foreground. On mobile, the current queued/extracting/generating item reuses the existing honest progress ring in a centered 152 px translucent, non-interactive overlay with percentage and stage text; its original row retains title, time, and actions without repeating the progress line. Waiting, incomplete, and failed items never become overlays, so their explanation and retry path remain visible. Desktop keeps the inline progress row. Completed work leaves Inbox; recoverable failures remain.
 
 ## 4. Review View
 
-Header:
+Header navigation:
 
 ```text
-知识筛选
-决定哪些 Raw 值得进入长期 Wiki
+SelfGrow
+收集 | 筛选
 ```
 
-Use five filter chips or sections:
+The folder filter begins directly below the navigation. There is no repeated `知识筛选` title or explanatory subtitle.
+
+Use one horizontally scrollable status-tab row with live counts:
 
 ```text
-未选择 | 待沉淀 | 已沉淀 | 内容已更新 | 失败
+未选择 24 | 待沉淀 4 | 已沉淀 128 | 更新 2 | 失败 1
 ```
+
+Only the active status renders cards. Each status is divided into deterministic pages of at most 10 cards; previous/next controls appear only when another page exists. Changing the Raw folder, status, or page exits multi-select and clears temporary checkboxes so hidden cards can never receive a batch action.
 
 Each Raw card shows:
 
@@ -81,10 +87,10 @@ Each Raw card shows:
 Actions:
 
 - Default cards show no checkbox and no repeated selection button.
-- Double-tapping a card opens its Raw note; a single tap only gives press feedback, so swipes and opens never compete.
+- Double-tapping a card opens its Raw note through Obsidian's native navigation history; a single tap only gives press feedback, so swipes and opens never compete. The host Back action returns directly to Review without reopening the plugin.
 - Long-pressing a card enters multi-select and selects that card; there is no separate `多选` button.
 - Outside multi-select, swiping a card right toggles the deposit decision (selects an unselected card, deselects a queued one) and swiping left opens the confirmed-delete flow. Cards under `已沉淀` never swipe right. Vertical scrolling wins until horizontal movement is clear, and incomplete swipes snap back with a spring.
-- Multi-select reveals card checkboxes and one batch bar with a `已勾选 n 条` count; the `选择沉淀`, `取消沉淀`, and `删除` actions appear only while at least one card is checked, and `完成` always exits the mode. Tapping a card while multi-select is active toggles it.
+- Multi-select reveals card checkboxes and a sticky batch bar only while at least one card is checked. The bar shows `已勾选 n 条` plus only the applicable `选择沉淀` or `取消沉淀` action, `删除`, and `完成`. On mobile it follows Obsidian's dynamic bottom spacing with a user-tuned 24 px visual overlap, keeping the controls close to but still above the floating navbar. Removing the final check exits multi-select automatically. Tapping a card while multi-select is active toggles it.
 - `确认更新` remains the only visible per-card primary action when a completed Raw changed.
 - The card's overflow menu offers `选择沉淀`/`取消沉淀` and single-card `删除`.
 
@@ -107,12 +113,7 @@ Do not show fake percentages. A selected card remains visibly selected after com
 
 ## 6. Codex Handoff
 
-The Review view does not pretend it can launch Codex. It explains the next action:
-
-```text
-已选择 4 条 Raw。
-请在 Codex 中运行 selfgrow-wiki，处理已选择内容。
-```
+The Review view does not show a persistent Codex instruction surface. The `待沉淀 n` tab is the compact queue indicator; the user invokes `selfgrow-wiki` from Codex when they are ready.
 
 Codex presents its proposed pages and links in the Codex conversation. Approval happens there, not in a second Obsidian diff interface.
 
