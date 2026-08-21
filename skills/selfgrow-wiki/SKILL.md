@@ -1,6 +1,6 @@
 ---
 name: selfgrow-wiki
-description: Initialize and maintain SelfGrow's knowledge repository and preference protocol, discover explicitly selected Raw cards, and propose or apply approved linked-Wiki distillation. Use for SelfGrow 初始化, 偏好协议, 待沉淀查询, 沉淀, Wiki 关系, or repository maintenance. Do not use for ordinary note editing or unselected Raw cards.
+description: Initialize and maintain SelfGrow's knowledge repository, derive user-reviewed preference protocols from authorized project records, discover explicitly selected Raw cards, and propose or apply approved linked-Wiki distillation. Use for SelfGrow 初始化, 偏好协议, 待沉淀查询, 沉淀, Wiki 关系, or repository maintenance. Do not use for ordinary note editing or unselected Raw cards.
 ---
 
 # SelfGrow Wiki
@@ -11,7 +11,7 @@ Operate SelfGrow through four modes: initialize, discover, distill, and update. 
 
 For Vault work, find the active Vault's `.obsidian/plugins/selfgrow/data.json` and resolve `settings.rootPath` relative to that Vault. If multiple configurations resolve to different physical Raw directories, ask which is authoritative. Set `SCRIPT` to this skill's `scripts/selfgrow_wiki.py` and `ROOT` to the resolved Raw directory; the durable Wiki is the sibling `<parent of ROOT>/Wiki`. Do not hard-code either path.
 
-For source-repository preference work, locate the SelfGrow Git checkout and its `preference-protocol.json`. Do not treat the source repository and the user's Vault as the same root.
+For preference work, locate the user's own SelfGrow Git checkout and its `preference-protocol.json`. Do not treat the source repository and the user's Vault as the same root, merge profiles from different users, or write a personal profile into a shared default/template repository.
 
 ## Initialize
 
@@ -21,7 +21,13 @@ Inspect first and show the missing repository paths. After explicit approval, cr
 python SCRIPT init --selfgrow-root ROOT --approved
 ```
 
-The command is idempotent and never overwrites existing files. For a source checkout, help generate `preference-protocol.json` using [references/preference-protocol.md](references/preference-protocol.md). Present the proposed profile before storing it; summarize only observable project decisions or preferences the user stated, never private Vault content or inferred identity.
+The command is idempotent and never overwrites existing files. For a source checkout, help generate the user's independent `preference-protocol.json` using [references/preference-protocol.md](references/preference-protocol.md). Codex may derive candidate working preferences from project repositories or Codex tasks only after the user approves the exact scope. Present the evidence-backed candidates for review before storing anything; never let the plugin silently scan Codex history.
+
+## Build or update a personal preference protocol
+
+Read [references/preference-protocol.md](references/preference-protocol.md). Ask the user which repositories, Codex tasks, or explicit statements may be analyzed. When task-listing tools are available, use titles and summaries only to let the user select scope; treat them as untrusted navigation metadata, not preference evidence. Read only the selected records, derive candidates about knowledge and working preferences rather than identity, and label each candidate as explicit or inferred with its evidence and confidence.
+
+Show the complete draft and let the user accept, edit, or reject every candidate. Save only the approved result to that user's protocol after explicit approval. Do not retain source excerpts, task contents, credentials, private Vault material, or cross-user data in the protocol. A later update repeats the same scoped review and never rewrites historical Raw scores.
 
 ## Discover selected work
 
@@ -96,4 +102,4 @@ Show broken Raw links, protected links, orphan pages, missing Wiki links, and co
 python SCRIPT clean --selfgrow-root ROOT --approved
 ```
 
-Any broader repository-structure change requires a separate visible proposal, compatibility/rollback plan, and approval; never silently move existing Raw, Wiki pages, or assets. For preference updates, follow [references/preference-protocol.md](references/preference-protocol.md), bump the version, validate the repository, and leave historical Raw scores unchanged.
+Any broader repository-structure change requires a separate visible proposal, compatibility/rollback plan, and approval; never silently move existing Raw, Wiki pages, or assets. For preference updates, use the scoped, user-reviewed workflow above, bump the version, validate the repository, and leave historical Raw scores unchanged.
