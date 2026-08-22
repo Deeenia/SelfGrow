@@ -98,6 +98,7 @@ describe('ModelCatalogService', () => {
     ).toContain('kimi-k3');
     expect(isKnownMultimodalModel('kimi-k3')).toBe(true);
     expect(isKnownMultimodalModel('deepseek-v4-flash')).toBe(false);
+    expect(isKnownMultimodalModel('deepseek-v4-flash-vision-exp')).toBe(true);
   });
 
   it('describes known Kimi models and omits filler for unknown models', async () => {

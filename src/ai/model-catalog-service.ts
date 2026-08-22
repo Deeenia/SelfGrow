@@ -236,6 +236,10 @@ const MODEL_PROFILES: Readonly<Record<string, ModelProfile>> = {
     positioning: { en: 'low-cost fast', 'zh-CN': '高性价比快速' },
     recommended: true,
   },
+  'deepseek-v4-flash-vision-exp': {
+    multimodal: true,
+    positioning: { en: 'experimental vision', 'zh-CN': '视觉实验模型' },
+  },
   'gpt-4.1': {
     positioning: { en: 'general-purpose', 'zh-CN': '通用模型' },
   },

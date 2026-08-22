@@ -54,6 +54,13 @@ const COPY = {
       'Bind this key to a provider. Switching keys restores the saved provider automatically.',
     selectSecret: 'Select a key',
     addSecret: 'Add key',
+    secretEditTitle: 'Edit API key',
+    secretID: 'Key ID',
+    secretValue: 'API Key',
+    secretValueOptional: 'Leave blank to keep the saved API key.',
+    secretSave: 'Save key',
+    secretIDLocked:
+      'Obsidian does not expose key deletion or rename. Create a new key to use a new ID.',
     test: 'Test connection',
     testFailed: 'Connection test failed.',
     testPassed: 'Connection test passed.',
@@ -84,6 +91,12 @@ const COPY = {
     secretProviderDescription: '将密钥绑定到服务商；切换密钥时自动恢复对应的服务商和地址。',
     selectSecret: '选择密钥',
     addSecret: '添加密钥',
+    secretEditTitle: '编辑 API 密钥',
+    secretID: '密钥 ID',
+    secretValue: 'API Key',
+    secretValueOptional: '留空则保持已保存的 API Key 不变。',
+    secretSave: '保存密钥',
+    secretIDLocked: 'Obsidian 未提供密钥删除或重命名接口；如需新 ID，请添加一个新密钥。',
     test: '测试连接',
     testFailed: '连接测试失败。',
     testPassed: '连接测试成功。',
@@ -216,10 +229,22 @@ export class SelfGrowSettingTab extends PluginSettingTab {
         .setTooltip(copy.addSecret)
         .onClick(() => this.#openNewChatSecret(key)),
     );
+    if (endpoint.secretName.length > 0) {
+      setting.addExtraButton((button) =>
+        button
+          .setIcon('pencil')
+          .setTooltip(copy.secretEditTitle)
+          .onClick(() => this.#openNewChatSecret(key, endpoint.secretName, endpoint.preset)),
+      );
+    }
   }
 
-  #openNewChatSecret(key: 'chat'): void {
-    new NewChatSecretModal(this.app, this.#host, key, () => {
+  #openNewChatSecret(
+    key: 'chat',
+    existingID = '',
+    existingPreset: SelfGrowSettings['chat']['preset'] | '' = '',
+  ): void {
+    new NewChatSecretModal(this.app, this.#host, key, existingID, existingPreset, () => {
       this.#chatModels = [];
       this.#chatModelsSignature = '';
       this.update();
@@ -404,50 +429,68 @@ export class SelfGrowSettingTab extends PluginSettingTab {
 }
 
 class NewChatSecretModal extends Modal {
+  readonly #existingID: string;
   readonly #host: SelfGrowSettingsHost;
   readonly #key: 'chat';
   readonly #onSaved: () => void;
   #id = '';
-  #preset: SelfGrowSettings['chat']['preset'] = 'kimi';
+  #preset: SelfGrowSettings['chat']['preset'];
   #secret = '';
 
-  constructor(app: App, host: SelfGrowSettingsHost, key: 'chat', onSaved: () => void) {
+  constructor(
+    app: App,
+    host: SelfGrowSettingsHost,
+    key: 'chat',
+    existingID: string,
+    existingPreset: SelfGrowSettings['chat']['preset'] | '',
+    onSaved: () => void,
+  ) {
     super(app);
+    const current = host.getSelfGrowSettings().chat;
+    this.#existingID = existingID;
     this.#host = host;
+    this.#id = existingID;
     this.#key = key;
     this.#onSaved = onSaved;
+    this.#preset =
+      existingID.length === 0 && isEndpointPreset(existingPreset)
+        ? existingPreset
+        : existingID.length > 0 && isEndpointPreset(existingPreset)
+          ? existingPreset
+          : current.preset;
+  }
+
+  #editing(): boolean {
+    return this.#existingID.length > 0;
   }
 
   override onOpen(): void {
     const language = this.#host.getSelfGrowSettings().language;
-    const copy =
-      language === 'zh-CN'
-        ? {
-            id: '密钥 ID',
-            key: 'API Key',
-            provider: '模型服务商',
-            save: '保存密钥',
-            title: '添加 API 密钥',
-          }
-        : {
-            id: 'Key ID',
-            key: 'API Key',
-            provider: 'Model provider',
-            save: 'Save key',
-            title: 'Add API key',
-          };
-    this.contentEl.createEl('h2', { text: copy.title });
-    new Setting(this.contentEl).setName(copy.id).addText((component) =>
-      component.setPlaceholder(copy.id).onChange((value) => {
-        this.#id = value.trim().toLowerCase();
-      }),
-    );
-    new Setting(this.contentEl).setName(copy.key).addText((component) => {
-      component.inputEl.type = 'password';
-      component.onChange((value) => {
-        this.#secret = value.trim();
-      });
+    const editing = this.#editing();
+    const copy = COPY[language];
+    this.contentEl.createEl('h2', {
+      text: editing ? copy.secretEditTitle : copy.addSecret,
     });
+    new Setting(this.contentEl)
+      .setName(copy.secretID)
+      .setDesc(editing ? copy.secretIDLocked : '')
+      .addText((component) =>
+        component
+          .setValue(this.#id)
+          .setDisabled(editing)
+          .onChange((value) => {
+            this.#id = value.trim().toLowerCase();
+          }),
+      );
+    new Setting(this.contentEl)
+      .setName(copy.secretValue)
+      .setDesc(editing ? copy.secretValueOptional : '')
+      .addText((component) => {
+        component.inputEl.type = 'password';
+        component.onChange((value) => {
+          this.#secret = value.trim();
+        });
+      });
     new Setting(this.contentEl).setName(copy.provider).addDropdown((component) =>
       component
         .addOptions({
@@ -465,35 +508,38 @@ class NewChatSecretModal extends Modal {
     new Setting(this.contentEl).addButton((button) =>
       button
         .setCta()
-        .setButtonText(copy.save)
+        .setButtonText(copy.secretSave)
         .onClick(() => void this.#save()),
     );
   }
 
   async #save(): Promise<void> {
     const language = this.#host.getSelfGrowSettings().language;
-    const notice =
-      language === 'zh-CN'
-        ? '密钥 ID 只能包含小写字母、数字和短横线。'
-        : 'Key ID may only contain lowercase letters, numbers, and dashes.';
+    const editing = this.#editing();
     if (!/^[a-z0-9-]+$/.test(this.#id)) {
-      new Notice(notice);
+      new Notice(
+        language === 'zh-CN'
+          ? '��Կ ID ֻ�ܰ���Сд��ĸ�����ֺͶ̺��ߡ�'
+          : 'Key ID may only contain lowercase letters, numbers, and dashes.',
+      );
       return;
     }
-    if (this.#secret.length === 0) {
-      new Notice(language === 'zh-CN' ? 'API Key 不能为空。' : 'API Key is required.');
+    if (!editing && this.#secret.length === 0) {
+      new Notice(language === 'zh-CN' ? 'API Key ����Ϊ�ա�' : 'API Key is required.');
       return;
     }
 
-    try {
-      this.app.secretStorage.setSecret(this.#id, this.#secret);
-    } catch (error) {
-      new Notice(
-        language === 'zh-CN'
-          ? `保存密钥失败：${error instanceof Error ? error.message : '未知错误'}`
-          : `Failed to save key: ${error instanceof Error ? error.message : 'unknown error'}`,
-      );
-      return;
+    if (this.#secret.length > 0) {
+      try {
+        this.app.secretStorage.setSecret(this.#id, this.#secret);
+      } catch (error) {
+        new Notice(
+          language === 'zh-CN'
+            ? `������Կʧ�ܣ�${error instanceof Error ? error.message : 'δ֪����'}`
+            : `Failed to save key: ${error instanceof Error ? error.message : 'unknown error'}`,
+        );
+        return;
+      }
     }
 
     await this.#host.updateSelfGrowSettings((current) => {
