@@ -765,9 +765,12 @@
 }
 
 @media (max-width: 520px) {
-  .selfgrow-inbox,
-  .selfgrow-review {
-    padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px));
+  .selfgrow-inbox::after,
+  .selfgrow-review::after {
+    content: '';
+    display: block;
+    height: calc(180px + env(safe-area-inset-bottom, 0px));
+    width: 100%;
   }
 
   .selfgrow-inbox-progress-overlay {
