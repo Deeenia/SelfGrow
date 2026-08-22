@@ -8,6 +8,7 @@ export default defineConfig(
     'coverage',
     'main.js',
     'build-meta.json',
+    'release',
     'docs',
     'esbuild.config.mjs',
     'eslint.config.mts',

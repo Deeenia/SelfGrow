@@ -7,12 +7,14 @@ import {
   type App,
   type SettingDefinitionItem,
 } from 'obsidian';
-import { isSelfGrowError } from '../domain';
+import { isSelfGrowError, type Language } from '../domain';
+import type { ModelCatalogEntry } from '../ai';
 import type { SelfGrowSettings } from './settings';
 
 export interface SelfGrowSettingsHost extends Plugin {
   ensureRawFolder(path: string): Promise<void>;
   getSelfGrowSettings(): SelfGrowSettings;
+  listChatModels(): Promise<ModelCatalogEntry[]>;
   testChatConnection(): Promise<void>;
   testExtractionConnection(): Promise<void>;
   updateSelfGrowSettings(update: (current: SelfGrowSettings) => SelfGrowSettings): Promise<void>;
@@ -29,6 +31,13 @@ const COPY = {
     language: 'Language',
     localExtraction: 'Local article extraction',
     model: 'Model',
+    modelDescription: 'Loads available models from the provider. Manual entry stays available.',
+    modelLoad: 'Load models',
+    modelLoadNoConfig: 'Fill in the service URL and save a key before loading models.',
+    modelRefresh: 'Refresh models',
+    modelsLoaded: (count: number) => `Loaded ${count} models.`,
+    selectModel: 'Select a model',
+    unlistedModel: 'Unlisted model',
     provider: 'Provider',
     rootPath: 'Root path',
     rootPathDescription:
@@ -50,6 +59,13 @@ const COPY = {
     language: '语言',
     localExtraction: '本地文章提取',
     model: '模型',
+    modelDescription: '可从服务商加载可用模型，同时保留手动输入。',
+    modelLoad: '加载模型',
+    modelLoadNoConfig: '请先填写服务地址并保存密钥，再加载模型。',
+    modelRefresh: '刷新模型',
+    modelsLoaded: (count: number) => `已加载 ${count} 个模型。`,
+    selectModel: '请选择模型',
+    unlistedModel: '未收录模型',
     provider: '服务商',
     rootPath: '根目录',
     rootPathDescription: 'Raw 数据文件夹位置；可填写已有路径，不存在时可直接新建。',
@@ -64,6 +80,9 @@ const COPY = {
 
 export class SelfGrowSettingTab extends PluginSettingTab {
   readonly #host: SelfGrowSettingsHost;
+  #chatModels: ModelCatalogEntry[] = [];
+  #chatModelsLoading = false;
+  #chatModelsSignature = '';
   #settingsContainer: HTMLElement | null = null;
 
   constructor(app: App, host: SelfGrowSettingsHost) {
@@ -128,26 +147,38 @@ export class SelfGrowSettingTab extends PluginSettingTab {
     new Setting(this.#container()).setName(name).setHeading();
     new Setting(this.#container()).setName(copy.provider).addDropdown((component) =>
       component
-        .addOptions({ custom: 'Custom', deepseek: 'DeepSeek', openai: 'OpenAI', qwen: 'Qwen' })
+        .addOptions({
+          custom: 'Custom',
+          deepseek: 'DeepSeek',
+          kimi: 'Kimi',
+          openai: 'OpenAI',
+          qwen: 'Qwen',
+        })
         .setValue(endpoint.preset)
         .onChange((value) => {
           if (!isEndpointPreset(value)) return;
-          void this.#updateEndpoint(key, endpointPresetPatch(value));
+          void this.#updateEndpoint(key, endpointPresetPatch(value)).then(() => {
+            this.#chatModels = [];
+            this.#chatModelsSignature = '';
+            this.update();
+          });
         }),
     );
     new Setting(this.#container()).setName(copy.baseURL).addText((component) =>
       component.setValue(endpoint.baseURL).onChange((value) => {
-        void this.#updateEndpoint(key, { baseURL: value.trim() });
+        void this.#updateEndpoint(key, { baseURL: value.trim() }).then(() => {
+          this.#chatModels = [];
+          this.#chatModelsSignature = '';
+          this.update();
+        });
       }),
     );
-    new Setting(this.#container()).setName(copy.model).addText((component) =>
-      component.setValue(endpoint.model).onChange((value) => {
-        void this.#updateEndpoint(key, { model: value.trim() });
-      }),
-    );
+    this.#renderModelSetting(copy, key, endpoint);
     new Setting(this.#container()).setName(copy.secret).addComponent((element) =>
       new SecretComponent(this.app, element).setValue(endpoint.secretName).onChange((value) => {
-        void this.#updateEndpoint(key, { secretName: value });
+        void this.#updateEndpoint(key, { secretName: value }).then(() => {
+          if (value.trim().length > 0) void this.#loadChatModels();
+        });
       }),
     );
     new Setting(this.#container()).setName(copy.test).addButton((button) =>
@@ -155,6 +186,77 @@ export class SelfGrowSettingTab extends PluginSettingTab {
         void this.#test(() => this.#host.testChatConnection());
       }),
     );
+  }
+
+  #renderModelSetting(
+    copy: (typeof COPY)[Language],
+    key: 'chat',
+    endpoint: SelfGrowSettings['chat'],
+  ): void {
+    const signature = modelListSignature(endpoint);
+    if (this.#chatModelsSignature !== signature) {
+      this.#chatModels = [];
+      this.#chatModelsSignature = signature;
+    }
+    const models = this.#chatModels;
+    const setting = new Setting(this.#container())
+      .setName(copy.model)
+      .setDesc(copy.modelDescription);
+
+    if (models.length === 0) {
+      setting.addText((component) =>
+        component.setValue(endpoint.model).onChange((value) => {
+          void this.#updateEndpoint(key, { model: value.trim() });
+        }),
+      );
+    } else {
+      const selected = endpoint.model.trim();
+      const optionText = (entry: ModelCatalogEntry): string =>
+        entry.description.length === 0 ? entry.id : `${entry.id} — ${entry.description}`;
+      setting.addDropdown((component) => {
+        component.addOption('', copy.selectModel);
+        for (const entry of models) component.addOption(entry.id, optionText(entry));
+        if (selected.length > 0 && !models.some((entry) => entry.id === selected)) {
+          component.addOption(selected, `${selected} — ${copy.unlistedModel}`);
+        }
+        component.setValue(selected).onChange((value) => {
+          if (value.length === 0) return;
+          void this.#updateEndpoint(key, { model: value });
+        });
+      });
+    }
+
+    setting.addExtraButton((button) =>
+      button
+        .setIcon('refresh-cw')
+        .setTooltip(models.length === 0 ? copy.modelLoad : copy.modelRefresh)
+        .setDisabled(this.#chatModelsLoading)
+        .onClick(() => {
+          void this.#loadChatModels();
+        }),
+    );
+  }
+
+  async #loadChatModels(): Promise<void> {
+    if (this.#chatModelsLoading) return;
+    const copy = COPY[this.#host.getSelfGrowSettings().language];
+    const endpoint = this.#host.getSelfGrowSettings().chat;
+    if (endpoint.baseURL.trim().length === 0 || endpoint.secretName.trim().length === 0) {
+      new Notice(copy.modelLoadNoConfig);
+      return;
+    }
+    this.#chatModelsLoading = true;
+    try {
+      const models = await this.#host.listChatModels();
+      this.#chatModels = models;
+      this.#chatModelsSignature = modelListSignature(endpoint);
+      new Notice(copy.modelsLoaded(models.length));
+    } catch (error) {
+      new Notice(isSelfGrowError(error) ? error.message : copy.testFailed);
+    } finally {
+      this.#chatModelsLoading = false;
+      this.update();
+    }
   }
 
   #extraction(): void {
@@ -262,8 +364,18 @@ export class SelfGrowSettingTab extends PluginSettingTab {
   }
 }
 
+function modelListSignature(endpoint: SelfGrowSettings['chat']): string {
+  return JSON.stringify([endpoint.preset, endpoint.baseURL, endpoint.secretName]);
+}
+
 function isEndpointPreset(value: string): value is SelfGrowSettings['chat']['preset'] {
-  return value === 'openai' || value === 'deepseek' || value === 'qwen' || value === 'custom';
+  return (
+    value === 'openai' ||
+    value === 'deepseek' ||
+    value === 'qwen' ||
+    value === 'kimi' ||
+    value === 'custom'
+  );
 }
 
 function endpointPresetPatch(
@@ -272,6 +384,7 @@ function endpointPresetPatch(
   const baseURLs = {
     custom: '',
     deepseek: 'https://api.deepseek.com',
+    kimi: 'https://api.moonshot.cn/v1',
     openai: 'https://api.openai.com/v1',
     qwen: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
   } as const;

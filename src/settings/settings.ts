@@ -2,7 +2,7 @@ import { LANGUAGES } from '../domain';
 import { SelfGrowError } from '../domain/errors';
 import { z } from '../schema/zod';
 
-export const PROVIDER_PRESETS = ['openai', 'deepseek', 'qwen', 'custom'] as const;
+export const PROVIDER_PRESETS = ['openai', 'deepseek', 'qwen', 'kimi', 'custom'] as const;
 export const EXTRACTION_PROVIDER_PRESETS = ['tikhub', 'custom'] as const;
 
 const providerPresetSchema = z.enum(PROVIDER_PRESETS);

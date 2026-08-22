@@ -14,3 +14,6 @@ coverage/
 skills/ponytail/
 **/__pycache__/
 *.py[cod]
+
+release/
+/SelfGrow-*.zip

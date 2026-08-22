@@ -33,7 +33,7 @@ describe('settings', () => {
   it('uses mobile-safe validation and only current configuration surfaces', () => {
     const settings = createDefaultSettings();
     expect(z.config().jitless).toBe(true);
-    expect(PROVIDER_PRESETS).toEqual(['openai', 'deepseek', 'qwen', 'custom']);
+    expect(PROVIDER_PRESETS).toEqual(['openai', 'deepseek', 'qwen', 'kimi', 'custom']);
     expect(EXTRACTION_PROVIDER_PRESETS).toEqual(['tikhub', 'custom']);
     expect(settings).toEqual({
       chat: { baseURL: '', connectionTest: null, model: '', preset: 'openai', secretName: '' },
