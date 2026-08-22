@@ -4,7 +4,6 @@ import {
   Plugin,
   PluginSettingTab,
   SecretComponent,
-  setIcon,
   Setting,
   type App,
   type SettingDefinitionItem,
@@ -242,31 +241,6 @@ export class SelfGrowSettingTab extends PluginSettingTab {
     }
   }
 
-  #openManageChatSecret(secretName: string): void {
-    new ManageChatSecretModal(
-      this.app,
-      secretName,
-      (editID) => {
-        const settings = this.#host.getSelfGrowSettings();
-        const preset = settings.chatSecretProfiles[editID]?.preset ?? settings.chat.preset;
-        this.#openNewChatSecret('chat', editID, preset);
-      },
-      () => {
-        const current = this.#host.getSelfGrowSettings();
-        if (
-          current.chat.secretName.length > 0 &&
-          !this.app.secretStorage.listSecrets().includes(current.chat.secretName)
-        ) {
-          void this.#host.updateSelfGrowSettings((settings) => ({
-            ...settings,
-            chat: { ...settings.chat, connectionTest: null, secretName: '' },
-          }));
-        }
-        this.update();
-      },
-    ).open();
-  }
-
   #openNewChatSecret(
     key: 'chat',
     existingID = '',
@@ -277,6 +251,22 @@ export class SelfGrowSettingTab extends PluginSettingTab {
       this.#chatModelsSignature = '';
       this.update();
       void this.#loadChatModels();
+    }).open();
+  }
+
+  #openManageChatSecret(secretName: string): void {
+    new ManageChatSecretModal(this.app, secretName, () => {
+      const current = this.#host.getSelfGrowSettings();
+      if (
+        current.chat.secretName.length > 0 &&
+        !this.app.secretStorage.listSecrets().includes(current.chat.secretName)
+      ) {
+        void this.#host.updateSelfGrowSettings((settings) => ({
+          ...settings,
+          chat: { ...settings.chat, connectionTest: null, secretName: '' },
+        }));
+      }
+      this.update();
     }).open();
   }
 
@@ -458,61 +448,27 @@ export class SelfGrowSettingTab extends PluginSettingTab {
 
 class ManageChatSecretModal extends Modal {
   readonly #onClosed: () => void;
-  readonly #onEdit: (secretName: string) => void;
   readonly #secretName: string;
 
-  constructor(
-    app: App,
-    secretName: string,
-    onEdit: (secretName: string) => void,
-    onClosed: () => void,
-  ) {
+  constructor(app: App, secretName: string, onClosed: () => void) {
     super(app);
     this.#secretName = secretName;
-    this.#onEdit = onEdit;
     this.#onClosed = onClosed;
   }
 
   override onOpen(): void {
-    this.contentEl.createEl('h2', { text: this.#secretName });
-    new Setting(this.contentEl).addComponent((element) =>
-      new SecretComponent(this.app, element).setValue(this.#secretName),
-    );
+    const wrapper = this.contentEl.createDiv();
+    new SecretComponent(this.app, wrapper).setValue(this.#secretName);
 
-    // SecretComponent first renders a compact control. Open its native
-    // management page immediately so the user lands on the eye/trash rows.
-    window.setTimeout(() => {
-      const buttons = [...this.contentEl.querySelectorAll('button')];
-      buttons.find((button) => /change|����/i.test(button.textContent ?? ''))?.click();
-      this.#installEditButtons();
-      window.setTimeout(() => this.#installEditButtons(), 250);
-    }, 0);
-  }
-
-  #installEditButtons(): void {
-    const secretNames = this.app.secretStorage.listSecrets();
-    for (const icon of document.querySelectorAll('svg.lucide-trash')) {
-      const trashButton = icon.closest('button');
-      if (trashButton === null) continue;
-      const previous = trashButton.previousElementSibling;
-      if (previous?.classList.contains('selfgrow-secret-edit')) continue;
-      const rowText = trashButton.parentElement?.textContent ?? '';
-      const secretName = secretNames.find((name) => rowText.includes(name)) ?? '';
-      const parent = trashButton.parentElement;
-      if (parent === null) continue;
-      const editButton = parent.createEl('button');
-      editButton.className = 'selfgrow-secret-edit';
-      editButton.type = 'button';
-      editButton.setAttribute('aria-label', 'Edit provider binding');
-      setIcon(editButton, 'pencil');
-      editButton.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        this.#onEdit(secretName);
-        this.close();
-      });
-      parent.insertBefore(editButton, trashButton);
+    const openNativeManager = (): void => {
+      const button = wrapper.querySelector('button');
+      if (button !== null) button.click();
+    };
+    for (const delay of [0, 50, 150, 400, 900]) {
+      window.setTimeout(openNativeManager, delay);
     }
+    const observer = new MutationObserver(openNativeManager);
+    observer.observe(wrapper, { childList: true, subtree: true });
   }
 
   override onClose(): void {
