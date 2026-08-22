@@ -67,8 +67,8 @@ describe('OpenAIVisionOCRService', () => {
       configuration: () => ({
         baseURL: 'https://ai.example/v1',
         connectionTest: null,
-        model: 'vision-model',
-        preset: 'custom',
+        model: 'kimi-k3',
+        preset: 'kimi',
         secretName: 'Chat Secret',
       }),
       http,

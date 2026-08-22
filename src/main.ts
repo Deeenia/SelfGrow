@@ -201,7 +201,7 @@ export default class SelfGrowPlugin extends Plugin implements SelfGrowSettingsHo
       configuration: () => this.#settings.chat,
       http: new ObsidianHTTPTransport(),
       secretResolver: new ObsidianSecretResolver(this.app.secretStorage),
-    }).list(this.#settings.language);
+    }).listWithFallback(this.#settings.language);
   }
 
   async ensureRawFolder(path: string): Promise<void> {

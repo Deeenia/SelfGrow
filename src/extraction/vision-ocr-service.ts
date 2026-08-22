@@ -1,3 +1,4 @@
+import { isKnownMultimodalModel } from '../ai/model-catalog-service';
 import { SelfGrowError, type Language } from '../domain';
 import type { HTTPTransport, SecretResolver } from '../platform/ports';
 import { z } from '../schema/zod';
@@ -75,6 +76,15 @@ export class OpenAIVisionOCRService implements CaptureVisionPort {
   async preview(paths: readonly string[], language: Language): Promise<VisualPreview> {
     if (paths.length === 0) {
       throw new SelfGrowError('EXTRACTION_FAILED', 'A visual preview requires an image.');
+    }
+    const configuredModel = this.#configuration().model;
+    if (!isKnownMultimodalModel(configuredModel)) {
+      throw new SelfGrowError(
+        'AI_PROTOCOL_UNSUPPORTED',
+        language === 'zh-CN'
+          ? '当前模型未标记为多模态，无法生成图片预览。'
+          : 'The selected model is not marked as multimodal and cannot generate an image preview.',
+      );
     }
     const output = await this.#complete(
       paths,

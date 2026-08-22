@@ -127,6 +127,17 @@ describe('Task-015 chat connection test', () => {
     expect(call?.body).not.toContain(OBVIOUSLY_FAKE_SECRET);
   });
 
+  it('uses a multimodal probe for known vision models', async () => {
+    const transport = new FixtureHTTPTransport([route(successBody())]);
+    await service(transport).testChat(configuration({ model: 'kimi-k3', preset: 'kimi' }));
+
+    const call = transport.calls[0];
+    expect(call?.body).toContain('data:image/png;base64,');
+    expect(call?.body).toContain('"type":"image_url"');
+    expect(call?.body).toContain('"type":"text"');
+    expect(call?.body).toContain(CHAT_CONNECTION_PROBE.message);
+  });
+
   it('resolves the SecretStorage reference anew on every testChat call', async () => {
     const resolver = new MutableSecretResolver([
       'fixture-secret-first-not-valid',

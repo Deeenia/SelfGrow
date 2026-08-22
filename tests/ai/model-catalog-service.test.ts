@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { ModelCatalogService, modelsEndpoint } from '../../src/ai';
+import {
+  isKnownMultimodalModel,
+  knownModelCatalog,
+  ModelCatalogService,
+  modelsEndpoint,
+} from '../../src/ai';
 import { FakeSecretResolver, FixtureHTTPTransport, OBVIOUSLY_FAKE_SECRET } from '../harness';
 import type { EndpointSettings } from '../../src/settings';
 
@@ -51,6 +56,48 @@ describe('ModelCatalogService', () => {
     expect(modelsEndpoint('https://api.example.com/v1/chat/completions')).toBe(
       'https://api.example.com/v1/models',
     );
+  });
+
+  it('provides a local provider catalog without requiring an API key', async () => {
+    const service = new ModelCatalogService({
+      configuration: () => configuration({ baseURL: 'https://api.moonshot.cn/v1' }),
+      http: new FixtureHTTPTransport([]),
+      secretResolver: new FakeSecretResolver({}),
+    });
+
+    const models = await service.listWithFallback('zh-CN');
+
+    expect(models.map((model) => model.id)).toContain('kimi-k3');
+    expect(models.find((model) => model.id === 'kimi-k3')?.description).toContain('推荐');
+  });
+
+  it('falls back to local models when the remote list fails authentication', async () => {
+    const service = new ModelCatalogService({
+      configuration: () => configuration({ baseURL: 'https://api.moonshot.cn/v1' }),
+      http: new FixtureHTTPTransport([
+        {
+          method: 'GET',
+          outcome: {
+            kind: 'response',
+            response: { body: '{}', headers: {}, status: 401 },
+          },
+          url: 'https://api.moonshot.cn/v1/models',
+        },
+      ]),
+      secretResolver: new FakeSecretResolver({ chat: OBVIOUSLY_FAKE_SECRET }),
+    });
+
+    const models = await service.listWithFallback('zh-CN');
+
+    expect(models.map((model) => model.id)).toContain('kimi-k3');
+  });
+
+  it('reports known multimodal models', () => {
+    expect(
+      knownModelCatalog('https://api.moonshot.cn/v1', 'zh-CN').map((model) => model.id),
+    ).toContain('kimi-k3');
+    expect(isKnownMultimodalModel('kimi-k3')).toBe(true);
+    expect(isKnownMultimodalModel('deepseek-v4-flash')).toBe(false);
   });
 
   it('describes known Kimi models and omits filler for unknown models', async () => {

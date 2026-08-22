@@ -100,6 +100,32 @@ export class ModelCatalogService {
       .sort((left, right) => left.localeCompare(right))
       .map((id) => ({ description: modelDescription(id, language), id }));
   }
+
+  /**
+   * Loads remote models when a valid key is available, then merges the local
+   * provider catalog. Missing or invalid keys fall back to the local catalog so
+   * switching providers or keys never blocks model selection.
+   */
+  async listWithFallback(language: Language): Promise<ModelCatalogEntry[]> {
+    const configuration = this.#dependencies.configuration();
+    const baseURL = configuration.baseURL.trim();
+    const local = baseURL.length === 0 ? [] : knownModelCatalog(baseURL, language);
+    if (configuration.secretName.trim().length === 0) return local;
+
+    const secret = this.#dependencies.secretResolver.get({
+      name: configuration.secretName,
+    });
+    if (secret === null || secret.trim().length === 0 || /[\r\n]/.test(secret)) {
+      return local;
+    }
+
+    try {
+      return mergeModelCatalogs(local, await this.list(language));
+    } catch (error) {
+      if (isModelCatalogFallbackError(error)) return local;
+      throw error;
+    }
+  }
 }
 
 export function modelsEndpoint(baseURL: string): string {
@@ -126,6 +152,68 @@ function parseJSON(value: string): unknown {
   } catch {
     return null;
   }
+}
+
+export function knownModelCatalog(baseURL: string, language: Language): ModelCatalogEntry[] {
+  const family = providerFamily(baseURL);
+  const prefixes = PROVIDER_MODEL_PREFIXES[family];
+  return Object.keys(MODEL_PROFILES)
+    .filter((id) => prefixes.some((prefix) => id.startsWith(prefix)))
+    .sort((left, right) => left.localeCompare(right))
+    .map((id) => ({ description: modelDescription(id, language), id }));
+}
+
+export function isKnownMultimodalModel(id: string): boolean {
+  return MODEL_PROFILES[id]?.multimodal === true;
+}
+
+type ModelProviderFamily = 'custom' | 'deepseek' | 'kimi' | 'openai' | 'qwen';
+
+const PROVIDER_MODEL_PREFIXES: Readonly<Record<ModelProviderFamily, readonly string[]>> = {
+  custom: [],
+  deepseek: ['deepseek-'],
+  kimi: ['kimi-', 'moonshot-v1-'],
+  openai: ['gpt-', 'codex-'],
+  qwen: ['qwen-'],
+};
+
+function providerFamily(baseURL: string): ModelProviderFamily {
+  const hostname = new URL(baseURL.trim()).hostname.toLowerCase();
+  if (hostname === 'api.deepseek.com' || hostname.endsWith('.deepseek.com')) return 'deepseek';
+  if (hostname === 'api.openai.com' || hostname.endsWith('.openai.com')) return 'openai';
+  if (hostname === 'dashscope.aliyuncs.com' || hostname.endsWith('.aliyuncs.com')) return 'qwen';
+  if (
+    hostname === 'api.moonshot.cn' ||
+    hostname === 'api.moonshot.ai' ||
+    hostname.endsWith('.moonshot.cn') ||
+    hostname.endsWith('.moonshot.ai')
+  ) {
+    return 'kimi';
+  }
+  return 'custom';
+}
+
+function mergeModelCatalogs(
+  local: readonly ModelCatalogEntry[],
+  remote: readonly ModelCatalogEntry[],
+): ModelCatalogEntry[] {
+  const byID = new Map<string, ModelCatalogEntry>();
+  for (const entry of [...local, ...remote]) {
+    const current = byID.get(entry.id);
+    if (current === undefined || current.description.length === 0) byID.set(entry.id, entry);
+  }
+  return [...byID.values()].sort((left, right) => left.id.localeCompare(right.id));
+}
+
+function isModelCatalogFallbackError(error: unknown): boolean {
+  if (!(error instanceof SelfGrowError)) return false;
+  return (
+    error.code === 'SECRET_NOT_FOUND' ||
+    error.code === 'AI_AUTHENTICATION_FAILED' ||
+    error.code === 'AI_CONNECTION_TEST_FAILED' ||
+    error.code === 'AI_PROTOCOL_UNSUPPORTED' ||
+    error.code === 'NETWORK_UNAVAILABLE'
+  );
 }
 
 type LocalizedText = { en: string; 'zh-CN': string };

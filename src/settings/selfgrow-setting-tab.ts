@@ -33,7 +33,7 @@ const COPY = {
     model: 'Model',
     modelDescription: 'Loads available models from the provider. Manual entry stays available.',
     modelLoad: 'Load models',
-    modelLoadNoConfig: 'Fill in the service URL and save a key before loading models.',
+    modelLoadNoConfig: 'Fill in the service URL before loading models.',
     modelRefresh: 'Refresh models',
     modelsLoaded: (count: number) => `Loaded ${count} models.`,
     selectModel: 'Select a model',
@@ -61,7 +61,7 @@ const COPY = {
     model: '模型',
     modelDescription: '可从服务商加载可用模型，同时保留手动输入。',
     modelLoad: '加载模型',
-    modelLoadNoConfig: '请先填写服务地址并保存密钥，再加载模型。',
+    modelLoadNoConfig: '请先填写服务地址，再加载模型。',
     modelRefresh: '刷新模型',
     modelsLoaded: (count: number) => `已加载 ${count} 个模型。`,
     selectModel: '请选择模型',
@@ -241,7 +241,7 @@ export class SelfGrowSettingTab extends PluginSettingTab {
     if (this.#chatModelsLoading) return;
     const copy = COPY[this.#host.getSelfGrowSettings().language];
     const endpoint = this.#host.getSelfGrowSettings().chat;
-    if (endpoint.baseURL.trim().length === 0 || endpoint.secretName.trim().length === 0) {
+    if (endpoint.baseURL.trim().length === 0) {
       new Notice(copy.modelLoadNoConfig);
       return;
     }
@@ -365,7 +365,7 @@ export class SelfGrowSettingTab extends PluginSettingTab {
 }
 
 function modelListSignature(endpoint: SelfGrowSettings['chat']): string {
-  return JSON.stringify([endpoint.preset, endpoint.baseURL, endpoint.secretName]);
+  return JSON.stringify([endpoint.preset, endpoint.baseURL]);
 }
 
 function isEndpointPreset(value: string): value is SelfGrowSettings['chat']['preset'] {
