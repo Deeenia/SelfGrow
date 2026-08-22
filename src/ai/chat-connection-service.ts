@@ -27,6 +27,7 @@ const chatCompletionSchema = z.object({
       z.object({
         message: z.object({
           content: chatMessageContentSchema,
+          reasoning_content: z.string().optional(),
           role: z.string(),
         }),
       }),
@@ -145,7 +146,7 @@ export class ChatConnectionService {
 
     const request: HTTPRequest = {
       body: JSON.stringify({
-        max_tokens: 16,
+        max_tokens: 256,
         messages: [
           {
             content: isKnownMultimodalModel(resolved.model)
@@ -313,6 +314,7 @@ function parseJSON(body: unknown): unknown {
 function hasAssistantContent(completion: ChatCompletion): boolean {
   return completion.choices.some((choice) => {
     if (choice.message.role !== 'assistant') return false;
+    if ((choice.message.reasoning_content ?? '').trim().length > 0) return true;
     const content = choice.message.content;
     if (typeof content === 'string') return content.trim().length > 0;
     return content.some((part) => part.type === 'text' && (part.text ?? '').trim().length > 0);

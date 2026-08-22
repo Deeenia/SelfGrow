@@ -121,7 +121,7 @@ describe('Task-015 chat connection test', () => {
     expect(JSON.parse(call?.body ?? '')).toEqual({
       messages: [{ content: CHAT_CONNECTION_PROBE.message, role: 'user' }],
       model: MODEL,
-      max_tokens: 16,
+      max_tokens: 256,
       temperature: 0,
     });
     expect(call?.body).not.toContain(OBVIOUSLY_FAKE_SECRET);
@@ -136,6 +136,30 @@ describe('Task-015 chat connection test', () => {
     expect(call?.body).toContain('"type":"image_url"');
     expect(call?.body).toContain('"type":"text"');
     expect(call?.body).toContain(CHAT_CONNECTION_PROBE.message);
+  });
+
+  it('accepts reasoning models that return only reasoning_content', async () => {
+    const transport = new FixtureHTTPTransport([
+      route(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: '',
+                reasoning_content: 'connectivity check',
+                role: 'assistant',
+              },
+            },
+          ],
+          id: 'chatcmpl-reasoning-fixture',
+          model: MODEL,
+          object: 'chat.completion',
+        }),
+      ),
+    ]);
+    await expect(service(transport).testChat(configuration())).resolves.toMatchObject({
+      model: MODEL,
+    });
   });
 
   it('accepts vision-model responses whose content is an array', async () => {
