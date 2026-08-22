@@ -457,18 +457,10 @@ class ManageChatSecretModal extends Modal {
   }
 
   override onOpen(): void {
-    const wrapper = this.contentEl.createDiv();
-    new SecretComponent(this.app, wrapper).setValue(this.#secretName);
-
-    const openNativeManager = (): void => {
-      const button = wrapper.querySelector('button');
-      if (button !== null) button.click();
-    };
-    for (const delay of [0, 50, 150, 400, 900]) {
-      window.setTimeout(openNativeManager, delay);
-    }
-    const observer = new MutationObserver(openNativeManager);
-    observer.observe(wrapper, { childList: true, subtree: true });
+    this.contentEl.createEl('h2', { text: this.#secretName });
+    new Setting(this.contentEl).addComponent((element) =>
+      new SecretComponent(this.app, element).setValue(this.#secretName),
+    );
   }
 
   override onClose(): void {
