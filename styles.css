@@ -765,6 +765,11 @@
 }
 
 @media (max-width: 520px) {
+  .selfgrow-inbox,
+  .selfgrow-review {
+    padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px));
+  }
+
   .selfgrow-inbox-progress-overlay {
     align-items: center;
     backdrop-filter: blur(8px);
