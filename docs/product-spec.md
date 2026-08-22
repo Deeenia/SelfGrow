@@ -66,9 +66,11 @@ All images belonging to a completed Raw card are retained under `SelfGrow/Attach
 
 Every new text, link, and GitHub input produces one AI recognition card after the raw body is extracted. The AI only classifies the category (`Project`, `Skill`, or `Experience`), writes a short noun-phrase title, writes one 40–120 character selection-reason sentence, and optionally lists GitHub search terms; it never summarizes the full body — the Wiki remains the long-term synthesis layer. Output is strict JSON validated against the same rules: category must be one of the three, titles must not contain clichés like `这篇文章`/`本文介绍了`/`向大家推荐` or trailing punctuation, previews must be a single sentence that does not restate the title, and the whole card may be repaired at most once before a deterministic local fallback (GitHub sources default to `Project`, Skill-signal text to `Skill`, otherwise `Experience`). A local fallback is shown in the UI as a secondary hint and recorded as `recognition_source: local` in Raw frontmatter — it is never presented as an AI success.
 
+The same bounded AI call may also return an advisory `0–100` recommendation score and one-sentence reason using the versioned repository file `preference-protocol.json`. The protocol records only working preferences evidenced by this repository; it must not infer identity, private experience, or facts from the user's Vault. The score and protocol version are stored with the Raw card and shown quietly beside its preview. They never auto-select, reject, delete, prioritize processing, or change Wiki eligibility. Codex may update the protocol and bump its version; rebuilding the plugin applies the new protocol only to future captures, while existing cards retain their historical score.
+
 GitHub name completion applies only to `Project` and `Skill` inputs without a URL: the GitHub Search API is queried with bounded terms (original name, stripped name, `skill` variant, owner/repo), candidates are ranked by exact repo-name match, owner match, description/README mention, archive status, recency, and weak star signal. A single high-confidence exact match is adopted automatically; otherwise up to three candidates are shown for user confirmation; with no reliable result the original input is kept and the user is told `未找到可靠 GitHub 仓库` — no URL is fabricated. `Experience` input is never force-searched because of technical-looking words.
 
-Completed Inbox captures disappear immediately. Inbox retains only waiting, incomplete, and failed work.
+On mobile, the foreground queued/extracting/generating capture is represented by a centered translucent progress ring showing its existing durable stage percentage and localized stage text, outside the bottom-navbar region. The corresponding Inbox row keeps its identity and actions but does not repeat the progress line. Waiting-network, waiting-configuration, incomplete, and failed captures stay as ordinary cards with their explanation and retry/delete actions; desktop retains the inline progress presentation. Completed Inbox captures disappear immediately.
 
 ## 4. Raw Review
 
@@ -78,7 +80,7 @@ SelfGrow replaces the planned Today and Favorites surfaces with one mobile-safe 
 SelfGrow Review / 知识筛选
 ```
 
-It groups Raw cards into:
+It switches between five counted status pages:
 
 - 未选择
 - 已选择 / 待沉淀
@@ -86,7 +88,7 @@ It groups Raw cards into:
 - 内容已更新
 - 处理失败
 
-Default cards prioritize content and show no checkbox or repeated selection button. Double-tapping a card opens its Raw note; a single tap only gives press feedback, so swipes and opens never compete. Long-pressing a card enters multi-select and selects it, so no separate `多选` button is needed. Outside multi-select, swiping a card right toggles its deposit decision (selects an unselected card, deselects a queued one) and swiping left starts its confirmed-delete flow; distilled cards never swipe right. Multi-select reveals checkboxes and one batch action bar whose `选择沉淀`, `取消沉淀`, and `删除` actions appear only while at least one card is checked, with `完成` always available to exit; swipe gestures are then disabled. The view supports:
+Only the active status renders cards, in deterministic pages of at most 10. Changing folder, status, or page clears temporary selection and exits multi-select. Default cards prioritize content and show no checkbox, repeated selection button, Codex instruction card, or empty batch toolbar. Double-tapping a card opens its Raw note through Obsidian's native navigation history, so the host Back action returns directly to Review; a single tap only gives press feedback, so swipes and opens never compete. Long-pressing a card enters multi-select and selects it, so no separate `多选` button is needed. Outside multi-select, swiping a card right toggles its deposit decision (selects an unselected card, deselects a queued one) and swiping left starts its confirmed-delete flow; distilled cards never swipe right. Multi-select reveals checkboxes and one sticky batch action bar only while at least one card is checked; it shows only the applicable selection/cancellation action plus `删除` and `完成`, follows Obsidian's dynamic mobile bottom spacing with a user-tuned 24 px visual overlap, and exits when the final check is removed. Swipe gestures are disabled while multi-select is active. The view supports:
 
 - batch select for distillation
 - batch cancel selection
@@ -222,7 +224,7 @@ Still excluded:
 - automatic Wiki promotion without user selection
 - automatic Codex launch from Obsidian
 - custom graph database, edge store, Canvas, or graph renderer
-- recommendations, goals, streaks, notifications, and collaboration
+- automated recommendation feeds, goals, streaks, notifications, and collaboration
 
 ## 12. Prototype Authority
 

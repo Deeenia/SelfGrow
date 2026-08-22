@@ -189,7 +189,7 @@ describe('LinkSupplementExtractor', () => {
       ),
     ).resolves.toMatchObject({
       content: {
-        body: '原图已保留；当前模型无法生成视觉描述，选择沉淀后可由 Codex 直接理解图片。',
+        body: '原图已保留；当前模型无法生成视觉描述，选择沉淀后可由智能体直接理解图片。',
         route: 'visual_preview',
         title: '架构截图',
       },

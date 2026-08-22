@@ -19,6 +19,9 @@ describe('CanonicalKnowledgeNoteCommitter', () => {
     expect(markdown).toMatch(/## My Notes\n\s*## Source/);
     expect(markdown).toContain('Grounded explanation.');
     expect(frontmatter).toMatchObject({
+      preference_protocol_version: null,
+      recommendation_reason: null,
+      recommendation_score: null,
       recognition_source: 'local',
       selfgrow_category: 'Project',
       selfgrow_layer: 'raw',
@@ -50,6 +53,29 @@ describe('CanonicalKnowledgeNoteCommitter', () => {
     expect(experience).toBe('SelfGrow/Experience/Unsafe - title.md');
     expect((await fixture.frontmatter.read(skill))?.selfgrow_category).toBe('Skill');
     expect((await fixture.frontmatter.read(experience))?.selfgrow_category).toBe('Experience');
+  });
+
+  it('records the preference protocol version and advisory recommendation', async () => {
+    const fixture = await createFixture();
+    const path = await fixture.committer.commit({
+      ...fixture.input,
+      generated: {
+        ...fixture.input.generated,
+        recommendation: {
+          protocolVersion: '2026-08-21',
+          reason: '符合可复用、可验证和本地优先的工程偏好。',
+          score: 88,
+        },
+        recognitionSource: 'ai',
+      },
+    });
+
+    expect(await fixture.frontmatter.read(path)).toMatchObject({
+      preference_protocol_version: '2026-08-21',
+      recommendation_reason: '符合可复用、可验证和本地优先的工程偏好。',
+      recommendation_score: 88,
+      wiki_selected: false,
+    });
   });
 
   it('defaults a capture without a folder to Project and records GitHub README diagnostics', async () => {
@@ -162,6 +188,7 @@ async function createFixture() {
       coreKnowledge: [{ explanationMarkdown: 'Grounded explanation.', title: 'Key idea' }],
       githubQueries: [] as readonly string[],
       outputLanguage: 'en' as const,
+      recommendation: null,
       recognitionSource: 'local' as const,
       sourceLanguage: 'en',
       summaryMarkdown: 'Grounded summary.',
