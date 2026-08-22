@@ -39,8 +39,8 @@ export class LinkSupplementExtractor implements ContentExtractor {
         preview = {
           preview:
             request.language === 'zh-CN'
-              ? '原图已保留；当前模型无法生成视觉描述，选择沉淀后可由 Codex 直接理解图片。'
-              : 'The original image is retained; the current model cannot describe it, so Codex can inspect it after selection.',
+              ? '原图已保留；当前模型无法生成视觉描述，选择沉淀后可由智能体直接理解图片。'
+              : 'The original image is retained; the current model cannot describe it, so an agent can inspect it after selection.',
           title:
             request.suggestedTitle?.trim() ||
             (request.language === 'zh-CN' ? '图片记录' : 'Image capture'),
