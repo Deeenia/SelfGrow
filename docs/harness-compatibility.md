@@ -121,7 +121,7 @@ Kimi Code、Z Code 等没有内置 Skill 注册机制的 harness，建议：
 
 | Harness | 状态 | 说明 |
 |---|---|---|
-| Codex | 待重测 | 本地 `config.toml` 的 `[agents]` 配置与当前 Codex CLI schema 不兼容 |
+| Codex | 通过 | 修复 `config.toml` 和 `models.json` 兼容问题后，bootstrap 执行成功 |
 | Claude Code | 未测 | 账号不可用，本轮跳过 |
 | opencode | 通过 | 成功读取 AGENTS.md，执行 bootstrap 并报告 eligible 为空 |
 | dsh | 通过 | 成功执行 bootstrap，并正确停止于空队列 |
