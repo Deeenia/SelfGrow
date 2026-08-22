@@ -54,6 +54,7 @@ const COPY = {
       'Bind this key to a provider. Switching keys restores the saved provider automatically.',
     selectSecret: 'Select a key',
     addSecret: 'Add key',
+    manageSecret: 'Manage / delete key',
     secretEditTitle: 'Edit API key',
     secretID: 'Key ID',
     secretValue: 'API Key',
@@ -91,6 +92,7 @@ const COPY = {
     secretProviderDescription: '将密钥绑定到服务商；切换密钥时自动恢复对应的服务商和地址。',
     selectSecret: '选择密钥',
     addSecret: '添加密钥',
+    manageSecret: '管理 / 删除密钥',
     secretEditTitle: '编辑 API 密钥',
     secretID: '密钥 ID',
     secretValue: 'API Key',
@@ -236,7 +238,29 @@ export class SelfGrowSettingTab extends PluginSettingTab {
           .setTooltip(copy.secretEditTitle)
           .onClick(() => this.#openNewChatSecret(key, endpoint.secretName, endpoint.preset)),
       );
+      setting.addExtraButton((button) =>
+        button
+          .setIcon('key')
+          .setTooltip(copy.manageSecret)
+          .onClick(() => this.#openManageChatSecret(endpoint.secretName)),
+      );
     }
+  }
+
+  #openManageChatSecret(secretName: string): void {
+    new ManageChatSecretModal(this.app, secretName, () => {
+      const current = this.#host.getSelfGrowSettings();
+      if (
+        current.chat.secretName.length > 0 &&
+        !this.app.secretStorage.listSecrets().includes(current.chat.secretName)
+      ) {
+        void this.#host.updateSelfGrowSettings((settings) => ({
+          ...settings,
+          chat: { ...settings.chat, connectionTest: null, secretName: '' },
+        }));
+      }
+      this.update();
+    }).open();
   }
 
   #openNewChatSecret(
@@ -425,6 +449,28 @@ export class SelfGrowSettingTab extends PluginSettingTab {
   #container(): HTMLElement {
     if (this.#settingsContainer === null) throw new Error('Settings are not mounted.');
     return this.#settingsContainer;
+  }
+}
+
+class ManageChatSecretModal extends Modal {
+  readonly #onClosed: () => void;
+  readonly #secretName: string;
+
+  constructor(app: App, secretName: string, onClosed: () => void) {
+    super(app);
+    this.#secretName = secretName;
+    this.#onClosed = onClosed;
+  }
+
+  override onOpen(): void {
+    this.contentEl.createEl('h2', { text: this.#secretName });
+    new Setting(this.contentEl).addComponent((element) =>
+      new SecretComponent(this.app, element).setValue(this.#secretName),
+    );
+  }
+
+  override onClose(): void {
+    this.#onClosed();
   }
 }
 
