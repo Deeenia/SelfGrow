@@ -1,4 +1,5 @@
 import {
+  Modal,
   Notice,
   Plugin,
   PluginSettingTab,
@@ -51,6 +52,8 @@ const COPY = {
     secret: 'SecretStorage key',
     secretProviderDescription:
       'Bind this key to a provider. Switching keys restores the saved provider automatically.',
+    selectSecret: 'Select a key',
+    addSecret: 'Add key',
     test: 'Test connection',
     testFailed: 'Connection test failed.',
     testPassed: 'Connection test passed.',
@@ -79,6 +82,8 @@ const COPY = {
     folderReady: 'Raw 文件夹已准备完成。请重新加载 Obsidian 以切换当前存储路径。',
     secret: 'SecretStorage 密钥',
     secretProviderDescription: '将密钥绑定到服务商；切换密钥时自动恢复对应的服务商和地址。',
+    selectSecret: '选择密钥',
+    addSecret: '添加密钥',
     test: '测试连接',
     testFailed: '连接测试失败。',
     testPassed: '连接测试成功。',
@@ -152,25 +157,6 @@ export class SelfGrowSettingTab extends PluginSettingTab {
     const endpoint = settings[key];
     const copy = COPY[settings.language];
     new Setting(this.#container()).setName(name).setHeading();
-    new Setting(this.#container()).setName(copy.provider).addDropdown((component) =>
-      component
-        .addOptions({
-          custom: 'Custom',
-          deepseek: 'DeepSeek',
-          kimi: 'Kimi',
-          openai: 'OpenAI',
-          qwen: 'Qwen',
-        })
-        .setValue(endpoint.preset)
-        .onChange((value) => {
-          if (!isEndpointPreset(value)) return;
-          void this.#updateEndpoint(key, endpointPresetPatch(value)).then(() => {
-            this.#chatModels = [];
-            this.#chatModelsSignature = '';
-            this.update();
-          });
-        }),
-    );
     new Setting(this.#container()).setName(copy.baseURL).addText((component) =>
       component.setValue(endpoint.baseURL).onChange((value) => {
         void this.#updateEndpoint(key, { baseURL: value.trim() }).then(() => {
@@ -181,55 +167,64 @@ export class SelfGrowSettingTab extends PluginSettingTab {
       }),
     );
     this.#renderModelSetting(copy, key, endpoint);
-    const previousSecretName = endpoint.secretName;
-    new Setting(this.#container())
-      .setName(copy.secret)
-      .setDesc(copy.secretProviderDescription)
-      .addComponent((element) =>
-        new SecretComponent(this.app, element).setValue(endpoint.secretName).onChange((value) => {
-          void this.#update((current) => {
-            const remembered = rememberChatSecretProfile(current, previousSecretName);
-            const restored = applyChatSecretProfile(remembered, value);
-            const switched = {
-              ...restored,
-              chat: {
-                ...restored.chat,
-                connectionTest: null,
-                secretName: value,
-              },
-            };
-            return rememberChatSecretProfile(switched, value);
-          }, true).then(() => {
-            this.#chatModels = [];
-            this.#chatModelsSignature = '';
-            if (value.trim().length > 0) void this.#loadChatModels();
-          });
-        }),
-      )
-      .addDropdown((component) =>
-        component
-          .addOptions({
-            custom: 'Custom',
-            deepseek: 'DeepSeek',
-            kimi: 'Kimi',
-            openai: 'OpenAI',
-            qwen: 'Qwen',
-          })
-          .setValue(endpoint.preset)
-          .onChange((value) => {
-            if (!isEndpointPreset(value)) return;
-            void this.#updateEndpoint(key, endpointPresetPatch(value)).then(() => {
-              this.#chatModels = [];
-              this.#chatModelsSignature = '';
-              this.update();
-            });
-          }),
-      );
+    this.#renderSecretSetting(copy, key, endpoint);
     new Setting(this.#container()).setName(copy.test).addButton((button) =>
       button.setButtonText(copy.test).onClick(() => {
         void this.#test(() => this.#host.testChatConnection());
       }),
     );
+  }
+
+  #renderSecretSetting(
+    copy: (typeof COPY)[Language],
+    key: 'chat',
+    endpoint: SelfGrowSettings['chat'],
+  ): void {
+    const secrets = this.app.secretStorage.listSecrets().sort();
+    const setting = new Setting(this.#container())
+      .setName(copy.secret)
+      .setDesc(copy.secretProviderDescription);
+
+    setting.addDropdown((component) => {
+      component.addOption('', copy.selectSecret);
+      for (const secretName of secrets) component.addOption(secretName, secretName);
+      if (endpoint.secretName.length > 0 && !secrets.includes(endpoint.secretName)) {
+        component.addOption(endpoint.secretName, endpoint.secretName);
+      }
+      component.setValue(endpoint.secretName).onChange((value) => {
+        void this.#update((current) => {
+          const restored = applyChatSecretProfile(current, value);
+          return {
+            ...restored,
+            chat: {
+              ...restored.chat,
+              connectionTest: null,
+              secretName: value,
+            },
+          };
+        }, true).then(() => {
+          this.#chatModels = [];
+          this.#chatModelsSignature = '';
+          if (value.trim().length > 0) void this.#loadChatModels();
+        });
+      });
+    });
+
+    setting.addExtraButton((button) =>
+      button
+        .setIcon('plus')
+        .setTooltip(copy.addSecret)
+        .onClick(() => this.#openNewChatSecret(key)),
+    );
+  }
+
+  #openNewChatSecret(key: 'chat'): void {
+    new NewChatSecretModal(this.app, this.#host, key, () => {
+      this.#chatModels = [];
+      this.#chatModelsSignature = '';
+      this.update();
+      void this.#loadChatModels();
+    }).open();
   }
 
   #renderModelSetting(
@@ -405,6 +400,122 @@ export class SelfGrowSettingTab extends PluginSettingTab {
   #container(): HTMLElement {
     if (this.#settingsContainer === null) throw new Error('Settings are not mounted.');
     return this.#settingsContainer;
+  }
+}
+
+class NewChatSecretModal extends Modal {
+  readonly #host: SelfGrowSettingsHost;
+  readonly #key: 'chat';
+  readonly #onSaved: () => void;
+  #id = '';
+  #preset: SelfGrowSettings['chat']['preset'] = 'kimi';
+  #secret = '';
+
+  constructor(app: App, host: SelfGrowSettingsHost, key: 'chat', onSaved: () => void) {
+    super(app);
+    this.#host = host;
+    this.#key = key;
+    this.#onSaved = onSaved;
+  }
+
+  override onOpen(): void {
+    const language = this.#host.getSelfGrowSettings().language;
+    const copy =
+      language === 'zh-CN'
+        ? {
+            id: '密钥 ID',
+            key: 'API Key',
+            provider: '模型服务商',
+            save: '保存密钥',
+            title: '添加 API 密钥',
+          }
+        : {
+            id: 'Key ID',
+            key: 'API Key',
+            provider: 'Model provider',
+            save: 'Save key',
+            title: 'Add API key',
+          };
+    this.contentEl.createEl('h2', { text: copy.title });
+    new Setting(this.contentEl).setName(copy.id).addText((component) =>
+      component.setPlaceholder(copy.id).onChange((value) => {
+        this.#id = value.trim().toLowerCase();
+      }),
+    );
+    new Setting(this.contentEl).setName(copy.key).addText((component) => {
+      component.inputEl.type = 'password';
+      component.onChange((value) => {
+        this.#secret = value.trim();
+      });
+    });
+    new Setting(this.contentEl).setName(copy.provider).addDropdown((component) =>
+      component
+        .addOptions({
+          custom: 'Custom',
+          deepseek: 'DeepSeek',
+          kimi: 'Kimi',
+          openai: 'OpenAI',
+          qwen: 'Qwen',
+        })
+        .setValue(this.#preset)
+        .onChange((value) => {
+          if (isEndpointPreset(value)) this.#preset = value;
+        }),
+    );
+    new Setting(this.contentEl).addButton((button) =>
+      button
+        .setCta()
+        .setButtonText(copy.save)
+        .onClick(() => void this.#save()),
+    );
+  }
+
+  async #save(): Promise<void> {
+    const language = this.#host.getSelfGrowSettings().language;
+    const notice =
+      language === 'zh-CN'
+        ? '密钥 ID 只能包含小写字母、数字和短横线。'
+        : 'Key ID may only contain lowercase letters, numbers, and dashes.';
+    if (!/^[a-z0-9-]+$/.test(this.#id)) {
+      new Notice(notice);
+      return;
+    }
+    if (this.#secret.length === 0) {
+      new Notice(language === 'zh-CN' ? 'API Key 不能为空。' : 'API Key is required.');
+      return;
+    }
+
+    try {
+      this.app.secretStorage.setSecret(this.#id, this.#secret);
+    } catch (error) {
+      new Notice(
+        language === 'zh-CN'
+          ? `保存密钥失败：${error instanceof Error ? error.message : '未知错误'}`
+          : `Failed to save key: ${error instanceof Error ? error.message : 'unknown error'}`,
+      );
+      return;
+    }
+
+    await this.#host.updateSelfGrowSettings((current) => {
+      const remembered = rememberChatSecretProfile(current, current.chat.secretName);
+      const patch = endpointPresetPatch(this.#preset);
+      const sameProvider = current.chat.preset === this.#preset;
+      return rememberChatSecretProfile(
+        {
+          ...remembered,
+          [this.#key]: {
+            ...remembered[this.#key],
+            ...patch,
+            connectionTest: null,
+            model: sameProvider ? remembered[this.#key].model : '',
+            secretName: this.#id,
+          },
+        },
+        this.#id,
+      );
+    });
+    this.#onSaved();
+    this.close();
   }
 }
 
