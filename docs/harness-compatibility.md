@@ -91,6 +91,28 @@ AGENTS.md
 python skills/selfgrow-wiki/scripts/selfgrow_wiki.py bootstrap --selfgrow-root Raw
 ```
 
+### WorkBuddy / CodeBuddy Code
+
+WorkBuddy CLI 在本机命令为：
+
+```text
+codebuddy-code
+```
+
+或别名：
+
+```text
+cbc
+```
+
+非交互测试时使用：
+
+```text
+codebuddy-code -p "任务"
+```
+
+Desktop 版本则直接在对话框中粘贴测试 prompt。
+
 ### dsh
 
 使用 headless profile 时，将 `BOOTSTRAP.md` 的内容作为任务上下文传入，或在 Vault 中放置 `AGENTS.md`。
@@ -125,3 +147,4 @@ Kimi Code、Z Code 等没有内置 Skill 注册机制的 harness，建议：
 | Claude Code | 未测 | 账号不可用，本轮跳过 |
 | opencode | 通过 | 成功读取 AGENTS.md，执行 bootstrap 并报告 eligible 为空 |
 | dsh | 通过 | 成功执行 bootstrap，并正确停止于空队列 |
+| WorkBuddy | 待测 | CLI 已安装，等待用户执行 bootstrap 冒烟测试 |
