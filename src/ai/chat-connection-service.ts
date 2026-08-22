@@ -16,12 +16,17 @@ const CHAT_PROBE_MAX_RESPONSE_BYTES = 65_536;
 const VISION_PROBE_IMAGE =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
 
+const chatMessageContentSchema = z.union([
+  z.string(),
+  z.array(z.object({ text: z.string().optional(), type: z.string() })),
+]);
+
 const chatCompletionSchema = z.object({
   choices: z
     .array(
       z.object({
         message: z.object({
-          content: z.string(),
+          content: chatMessageContentSchema,
           role: z.string(),
         }),
       }),
@@ -306,9 +311,12 @@ function parseJSON(body: unknown): unknown {
 }
 
 function hasAssistantContent(completion: ChatCompletion): boolean {
-  return completion.choices.some(
-    (choice) => choice.message.role === 'assistant' && choice.message.content.trim().length > 0,
-  );
+  return completion.choices.some((choice) => {
+    if (choice.message.role !== 'assistant') return false;
+    const content = choice.message.content;
+    if (typeof content === 'string') return content.trim().length > 0;
+    return content.some((part) => part.type === 'text' && (part.text ?? '').trim().length > 0);
+  });
 }
 
 function hasExplicitModelNotFound(body: string): boolean {

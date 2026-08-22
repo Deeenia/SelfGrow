@@ -138,6 +138,30 @@ describe('Task-015 chat connection test', () => {
     expect(call?.body).toContain(CHAT_CONNECTION_PROBE.message);
   });
 
+  it('accepts vision-model responses whose content is an array', async () => {
+    const transport = new FixtureHTTPTransport([
+      route(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: [{ text: 'OK', type: 'text' }],
+                role: 'assistant',
+              },
+            },
+          ],
+          id: 'chatcmpl-vision-fixture',
+          model: 'deepseek-v4-flash-vision-exp',
+          object: 'chat.completion',
+        }),
+      ),
+    ]);
+    await service(transport).testChat(
+      configuration({ model: 'deepseek-v4-flash-vision-exp', preset: 'deepseek' }),
+    );
+    expect(transport.calls[0]?.body).toContain('data:image/png;base64,');
+  });
+
   it('resolves the SecretStorage reference anew on every testChat call', async () => {
     const resolver = new MutableSecretResolver([
       'fixture-secret-first-not-valid',
