@@ -147,4 +147,5 @@ Kimi Code、Z Code 等没有内置 Skill 注册机制的 harness，建议：
 | Claude Code | 未测 | 账号不可用，本轮跳过 |
 | opencode | 通过 | 成功读取 AGENTS.md，执行 bootstrap 并报告 eligible 为空 |
 | dsh | 通过 | 成功执行 bootstrap，并正确停止于空队列 |
-| WorkBuddy | 待测 | CLI 已安装，等待用户执行 bootstrap 冒烟测试 |
+| WorkBuddy Desktop | 通过 | 成功执行 bootstrap，并正确报告 eligible 为空 |
+| WorkBuddy CLI | 未测 | 本轮只验证 Desktop，暂不强制 CLI 登录 |
