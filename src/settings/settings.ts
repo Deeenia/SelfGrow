@@ -36,8 +36,15 @@ const extractionProviderSettingsSchema = z.strictObject({
   secretName: z.string(),
 });
 
+const chatSecretProfileSchema = z.strictObject({
+  baseURL: z.string(),
+  model: z.string(),
+  preset: providerPresetSchema,
+});
+
 export const selfGrowSettingsSchema = z.strictObject({
   chat: endpointSettingsSchema,
+  chatSecretProfiles: z.record(z.string().min(1), chatSecretProfileSchema).default({}),
   extraction: extractionProviderSettingsSchema.nullable().default(null),
   language: z.enum(LANGUAGES),
   rootPath: z.string().min(1),
@@ -51,6 +58,7 @@ export type ExtractionCapabilities = z.infer<typeof extractionCapabilitySchema>;
 export type ExtractionConnectionTestMetadata = z.infer<typeof extractionConnectionTestSchema>;
 export type ExtractionProviderSettings = z.infer<typeof extractionProviderSettingsSchema>;
 export type EndpointSettings = z.infer<typeof endpointSettingsSchema>;
+export type ChatSecretProfile = z.infer<typeof chatSecretProfileSchema>;
 export type SelfGrowSettings = z.infer<typeof selfGrowSettingsSchema>;
 
 export interface ConnectionTestResult {
@@ -67,6 +75,7 @@ export interface SettingsLogSummary {
 export function createDefaultSettings(): SelfGrowSettings {
   return {
     chat: emptyEndpoint('openai'),
+    chatSecretProfiles: {},
     extraction: null,
     language: 'zh-CN',
     rootPath: 'Raw',
@@ -82,6 +91,7 @@ export function loadSettings(input: unknown): SelfGrowSettings {
   const source = typeof input === 'object' && input !== null ? input : {};
   const result = selfGrowSettingsSchema.safeParse({
     chat: (source as { chat?: unknown }).chat,
+    chatSecretProfiles: (source as { chatSecretProfiles?: unknown }).chatSecretProfiles ?? {},
     extraction: (source as { extraction?: unknown }).extraction,
     language: (source as { language?: unknown }).language,
     rootPath: (source as { rootPath?: unknown }).rootPath,
@@ -176,6 +186,47 @@ export function settingsLogSummary(settings: SelfGrowSettings): SettingsLogSumma
     chatConfigured: endpointConfigured(settings.chat),
     language: settings.language,
     schemaVersion: settings.schemaVersion,
+  };
+}
+
+export function chatSecretProfileFor(endpoint: EndpointSettings): ChatSecretProfile {
+  return {
+    baseURL: endpoint.baseURL,
+    model: endpoint.model,
+    preset: endpoint.preset,
+  };
+}
+
+export function rememberChatSecretProfile(
+  settings: SelfGrowSettings,
+  secretName: string,
+): SelfGrowSettings {
+  const name = secretName.trim();
+  if (name.length === 0) return settings;
+  return {
+    ...settings,
+    chatSecretProfiles: {
+      ...settings.chatSecretProfiles,
+      [name]: chatSecretProfileFor(settings.chat),
+    },
+  };
+}
+
+export function applyChatSecretProfile(
+  settings: SelfGrowSettings,
+  secretName: string,
+): SelfGrowSettings {
+  const name = secretName.trim();
+  const profile = settings.chatSecretProfiles[name];
+  if (profile === undefined) return settings;
+  return {
+    ...settings,
+    chat: {
+      ...settings.chat,
+      ...profile,
+      connectionTest: null,
+      secretName: name,
+    },
   };
 }
 

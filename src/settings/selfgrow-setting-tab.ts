@@ -9,7 +9,11 @@ import {
 } from 'obsidian';
 import { isSelfGrowError, type Language } from '../domain';
 import type { ModelCatalogEntry } from '../ai';
-import type { SelfGrowSettings } from './settings';
+import {
+  applyChatSecretProfile,
+  rememberChatSecretProfile,
+  type SelfGrowSettings,
+} from './settings';
 
 export interface SelfGrowSettingsHost extends Plugin {
   ensureRawFolder(path: string): Promise<void>;
@@ -45,6 +49,8 @@ const COPY = {
     createFolder: 'Create / use folder',
     folderReady: 'Raw folder is ready. Reload Obsidian to switch the active storage path.',
     secret: 'SecretStorage key',
+    secretProviderDescription:
+      'Bind this key to a provider. Switching keys restores the saved provider automatically.',
     test: 'Test connection',
     testFailed: 'Connection test failed.',
     testPassed: 'Connection test passed.',
@@ -72,6 +78,7 @@ const COPY = {
     createFolder: '新建 / 使用文件夹',
     folderReady: 'Raw 文件夹已准备完成。请重新加载 Obsidian 以切换当前存储路径。',
     secret: 'SecretStorage 密钥',
+    secretProviderDescription: '将密钥绑定到服务商；切换密钥时自动恢复对应的服务商和地址。',
     test: '测试连接',
     testFailed: '连接测试失败。',
     testPassed: '连接测试成功。',
@@ -174,13 +181,50 @@ export class SelfGrowSettingTab extends PluginSettingTab {
       }),
     );
     this.#renderModelSetting(copy, key, endpoint);
-    new Setting(this.#container()).setName(copy.secret).addComponent((element) =>
-      new SecretComponent(this.app, element).setValue(endpoint.secretName).onChange((value) => {
-        void this.#updateEndpoint(key, { secretName: value }).then(() => {
-          if (value.trim().length > 0) void this.#loadChatModels();
-        });
-      }),
-    );
+    const previousSecretName = endpoint.secretName;
+    new Setting(this.#container())
+      .setName(copy.secret)
+      .setDesc(copy.secretProviderDescription)
+      .addComponent((element) =>
+        new SecretComponent(this.app, element).setValue(endpoint.secretName).onChange((value) => {
+          void this.#update((current) => {
+            const remembered = rememberChatSecretProfile(current, previousSecretName);
+            const restored = applyChatSecretProfile(remembered, value);
+            const switched = {
+              ...restored,
+              chat: {
+                ...restored.chat,
+                connectionTest: null,
+                secretName: value,
+              },
+            };
+            return rememberChatSecretProfile(switched, value);
+          }, true).then(() => {
+            this.#chatModels = [];
+            this.#chatModelsSignature = '';
+            if (value.trim().length > 0) void this.#loadChatModels();
+          });
+        }),
+      )
+      .addDropdown((component) =>
+        component
+          .addOptions({
+            custom: 'Custom',
+            deepseek: 'DeepSeek',
+            kimi: 'Kimi',
+            openai: 'OpenAI',
+            qwen: 'Qwen',
+          })
+          .setValue(endpoint.preset)
+          .onChange((value) => {
+            if (!isEndpointPreset(value)) return;
+            void this.#updateEndpoint(key, endpointPresetPatch(value)).then(() => {
+              this.#chatModels = [];
+              this.#chatModelsSignature = '';
+              this.update();
+            });
+          }),
+      );
     new Setting(this.#container()).setName(copy.test).addButton((button) =>
       button.setButtonText(copy.test).onClick(() => {
         void this.#test(() => this.#host.testChatConnection());
@@ -340,10 +384,10 @@ export class SelfGrowSettingTab extends PluginSettingTab {
   }
 
   async #updateEndpoint(key: 'chat', patch: Partial<SelfGrowSettings[typeof key]>): Promise<void> {
-    await this.#update((current) => ({
-      ...current,
-      [key]: { ...current[key], ...patch, connectionTest: null },
-    }));
+    await this.#update((current) => {
+      const endpoint = { ...current[key], ...patch, connectionTest: null };
+      return rememberChatSecretProfile({ ...current, [key]: endpoint }, endpoint.secretName);
+    });
   }
 
   async #updateExtraction(

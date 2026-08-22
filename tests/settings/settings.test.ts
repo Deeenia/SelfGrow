@@ -5,14 +5,17 @@ import { z } from '../../src/schema/zod';
 import {
   EXTRACTION_PROVIDER_PRESETS,
   PROVIDER_PRESETS,
+  applyChatSecretProfile,
   createDefaultSettings,
   loadSettings,
   markConnectionTested,
   markExtractionTested,
+  rememberChatSecretProfile,
   serializeSettings,
   updateChat,
   updateExtraction,
   type EndpointSettings,
+  type SelfGrowSettings,
 } from '../../src/settings';
 import { OBVIOUSLY_FAKE_SECRET } from '../harness';
 
@@ -37,6 +40,7 @@ describe('settings', () => {
     expect(EXTRACTION_PROVIDER_PRESETS).toEqual(['tikhub', 'custom']);
     expect(settings).toEqual({
       chat: { baseURL: '', connectionTest: null, model: '', preset: 'openai', secretName: '' },
+      chatSecretProfiles: {},
       extraction: null,
       language: 'zh-CN',
       rootPath: 'Raw',
@@ -73,6 +77,40 @@ describe('settings', () => {
       getSecret: (name) => (name === 'Shared Fixture Secret' ? OBVIOUSLY_FAKE_SECRET : null),
     });
     expect(resolver.get({ name: settings.chat.secretName })).toBe(OBVIOUSLY_FAKE_SECRET);
+  });
+
+  it('remembers and restores provider profiles per SecretStorage key', () => {
+    const settings = createDefaultSettings();
+    const kimi = rememberChatSecretProfile(
+      {
+        ...settings,
+        chat: {
+          baseURL: 'https://api.moonshot.cn/v1',
+          connectionTest: null,
+          model: 'kimi-k3',
+          preset: 'kimi',
+          secretName: 'kimi-key',
+        },
+      },
+      'kimi-key',
+    );
+    const switched: SelfGrowSettings = {
+      ...kimi,
+      chat: {
+        baseURL: 'https://api.deepseek.com',
+        connectionTest: null,
+        model: 'deepseek-v4-flash',
+        preset: 'deepseek',
+        secretName: 'deepseek-key',
+      },
+    };
+    const restored = applyChatSecretProfile(switched, 'kimi-key');
+    expect(restored.chat).toMatchObject({
+      baseURL: 'https://api.moonshot.cn/v1',
+      model: 'kimi-k3',
+      preset: 'kimi',
+      secretName: 'kimi-key',
+    });
   });
 
   it('rejects invalid current settings and unsafe endpoint fields', () => {
