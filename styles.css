@@ -689,6 +689,21 @@
   -webkit-line-clamp: 2;
 }
 
+.selfgrow-review-recommendation {
+  align-items: baseline;
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--font-ui-smaller);
+  gap: var(--size-4-1) var(--size-4-2);
+  margin: calc(var(--size-4-2) * -1) 0 var(--size-4-3);
+}
+
+.selfgrow-review-recommendation strong {
+  color: var(--text-accent);
+  white-space: nowrap;
+}
+
 .selfgrow-review-thumbnail {
   border-radius: var(--radius-m);
   display: block;
@@ -750,6 +765,14 @@
 }
 
 @media (max-width: 520px) {
+  .selfgrow-inbox::after,
+  .selfgrow-review::after {
+    content: '';
+    display: block;
+    height: calc(180px + env(safe-area-inset-bottom, 0px));
+    width: 100%;
+  }
+
   .selfgrow-inbox-progress-overlay {
     align-items: center;
     backdrop-filter: blur(8px);

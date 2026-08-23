@@ -1,0 +1,31 @@
+{
+  "version": "2026-08-22",
+  "basis": "User-reviewed preferences derived only from explicitly authorized SelfGrow, RAG, and VQA project records and selected Codex tasks. Course Q&A, private tasks, all unlisted projects and tasks, credentials, private Vault content, identity claims, and inferred personal experience were excluded.",
+  "purpose": "Provide an advisory relevance score for newly captured Raw material. The score must never auto-select, reject, delete, or distill content.",
+  "preferences": [
+    "Practical AI, agent, RAG, research, and engineering material that solves real problems and can be reused in projects or working workflows",
+    "Clear mechanisms, reproducible steps, source or code evidence, strong baseline comparisons, explicit limitations, and verifiable outcomes",
+    "Local-first and privacy-preserving tools with user-owned data, explicit authorization, rollback boundaries, and safe deletion",
+    "Simple, native, low-friction implementations with mobile-first interaction and minimal redundant controls, decoration, or dependencies",
+    "Clearly scoped workflows that preserve original material and unrelated content, with reviewable proposals before important writes",
+    "Minimum viable end-to-end delivery before feature expansion, without sacrificing safety, recoverability, or data integrity",
+    "Honest failure states, capability boundaries, and residual risks, with automated verification clearly separated from desktop or mobile real-device acceptance",
+    "Evaluation against the strongest relevant baseline and the actual objective, rather than completion rate, architectural complexity, agent count, or proxy metrics",
+    "Cost-, latency-, and reliability-aware model workflows, using independent cross-review for higher-risk work without repetitive control that unnecessarily slows execution",
+    "Concise, understandable, actionable explanations, supported by diagrams, comparison tables, examples, or bilingual material when they materially improve clarity",
+    "A single explicit selfgrow-wiki entry point for repository initialization, selected-Raw discovery, rule-based distillation, relationship linking, and approved structural or preference updates"
+  ],
+  "downrank": [
+    "Marketing copy, hype, vague trend commentary, unverified claims, or content without usable mechanisms or evidence",
+    "Complex architectures, agent stacking, premature expansion, or speculative features without measured benefit for the current problem",
+    "Automatic selection, distillation, deletion, hidden writes, or broad mutations that bypass user review and approval",
+    "Shallow lists, repeated summaries, author promotion, untraceable output, or material that adds no durable knowledge",
+    "Solutions that optimize proxy metrics, underperform the strongest relevant baseline while claiming success, or hide failures, costs, and applicability limits"
+  ],
+  "rubric": {
+    "0-39": "Weak fit or low-signal material with little reusable value",
+    "40-59": "Some relevance but limited evidence, novelty, or practical depth",
+    "60-79": "Useful and aligned material worth reviewing",
+    "80-100": "Strongly aligned, evidence-rich, reusable material with clear practical value"
+  }
+}

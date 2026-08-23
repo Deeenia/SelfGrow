@@ -78,6 +78,7 @@ Each Raw card shows:
 
 - title
 - high-density preview
+- optional low-emphasis `推荐度 n` / `Fit n` plus one-sentence advisory reason when an AI score exists
 - source host/platform when present
 - image thumbnail when present
 - last content-update time
@@ -102,8 +103,8 @@ Use text plus icon:
 
 ```text
 ○ 未选择
-✓ 已选择，等待 Codex
-… Codex 处理中
+✓ 已选择，等待智能体
+… 智能体处理中
 ✓ 已沉淀
 ↻ 内容已更新，需要确认
 ! 沉淀失败
@@ -111,11 +112,13 @@ Use text plus icon:
 
 Do not show fake percentages. A selected card remains visibly selected after completion. Cancelling it states that existing Wiki knowledge will remain.
 
-## 6. Codex Handoff
+Recommendation scores are advisory metadata, not state or a primary action. Cards without a valid AI score show nothing in its place. Never use recommendation color, ordering, or automation to override the user's explicit selection decision.
 
-The Review view does not show a persistent Codex instruction surface. The `待沉淀 n` tab is the compact queue indicator; the user invokes `selfgrow-wiki` from Codex when they are ready.
+## 6. Agent Handoff
 
-Codex presents its proposed pages and links in the Codex conversation. Approval happens there, not in a second Obsidian diff interface.
+The Review view does not show a persistent agent instruction surface. The `待沉淀 n` tab is the compact queue indicator; the user invokes `selfgrow-wiki` from a supported coding agent when they are ready.
+
+The agent presents its proposed pages and links in its conversation. Approval happens there, not in a second Obsidian diff interface.
 
 ## 7. Raw Note Experience
 
@@ -143,7 +146,7 @@ Pure-image cards display the original image and one concise visual preview. Text
 我的经验
 ```
 
-The first three content sections are Codex-maintained after proposal approval. `我的经验` is protected from automatic edits. Dedicated Experience pages require explicit user-grounded material.
+The first three content sections are agent-maintained after proposal approval. `我的经验` is protected from automatic edits. Dedicated Experience pages require explicit user-grounded material.
 
 Relations are visible ordinary wikilinks. Obsidian graph filter `path:"Wiki"` provides the mature-knowledge view; including `SelfGrow/Knowledge` shows Raw evidence nodes.
 
@@ -157,7 +160,7 @@ Deleting Raw:
 - does not remove Wiki knowledge
 - removes unreferenced Raw attachments
 - leaves promoted assets under `Wiki/Assets/` intact
-- causes broken Raw-source links to be cleaned on the next Codex maintenance pass
+- causes broken Raw-source links to be cleaned on the next agent maintenance pass
 
 ## 10. Settings
 
@@ -179,6 +182,6 @@ Keep Chat and extraction settings with SecretStorage selectors and connection te
 - custom global search
 - Today/Favorites/Map replacements for native Obsidian
 - auto-selection or auto-distillation
-- automatic Codex launch
+- automatic agent launch
 - inference of personal experience from external content
-- export, PDF, Clear All, goals, streaks, notifications, and recommendations
+- export, PDF, Clear All, goals, streaks, notifications, and automated recommendation feeds

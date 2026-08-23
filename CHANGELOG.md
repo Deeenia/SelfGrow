@@ -102,13 +102,26 @@ D:\ai_test\test\test\.obsidian\plugins\selfgrow\
   - dsh
   - WorkBuddy Desktop
 
+### Friend branch merge
+
+- 合并 `fix/mobile-review-stability`：
+  - preference-based Raw scoring；
+  - workspace review 与 Skill 集成；
+  - 移动端 Review 稳定性修复；
+  - `preference-protocol.json` 与 Skill references；
+  - Python guard 新增 project link/summary/unlink 命令。
+- 解决 `selfgrow_wiki.py` 合并冲突：
+  - 保留我们的 `bootstrap` 命令；
+  - 同时保留朋友的 `link-project`、`project-status`、`validate-project-summary`、`apply-project-summary`、`unlink-project` 命令。
+
 ### Verification
 
-- 当前未提交工作区验证通过：
-  - `format:check`
-  - `lint`
-  - `typecheck`
-  - 35 个测试文件，285 个测试全部通过
+- 合并后验证：
+  - `format:check` 通过；
+  - `lint` 通过；
+  - `typecheck` 通过；
+  - 35 个测试文件，288 个测试全部通过；
+  - Python guard `py_compile` 通过。
 
 ### Git status
 

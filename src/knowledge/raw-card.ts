@@ -1,4 +1,10 @@
-import { SelfGrowError, selfGrowID, type SelfGrowID, type VaultPath } from '../domain';
+import {
+  SelfGrowError,
+  selfGrowID,
+  type PreferenceRecommendation,
+  type SelfGrowID,
+  type VaultPath,
+} from '../domain';
 import type { Frontmatter, FrontmatterPort, VaultTreePort } from '../platform/ports';
 import { z } from '../schema/zod';
 import type { PathGuard } from '../vault';
@@ -28,6 +34,7 @@ export interface RawCardState {
   path: VaultPath;
   platform: string;
   previewMarkdown: string;
+  recommendation: PreferenceRecommendation | null;
   sourceURL: string;
   title: string;
   wikiSelected: boolean;
@@ -53,6 +60,9 @@ const rawV2Schema = identitySchema.extend({
     .string()
     .regex(/^[a-f0-9]{64}$/)
     .nullable(),
+  preference_protocol_version: z.string().min(1).nullable().optional(),
+  recommendation_reason: z.string().min(1).nullable().optional(),
+  recommendation_score: z.number().int().min(0).max(100).nullable().optional(),
   selfgrow_layer: z.literal('raw'),
   selfgrow_schema: z.literal(2),
   wiki_selected: z.boolean(),
@@ -240,6 +250,7 @@ export class RawCardService {
         id: selfGrowID(identity.data.selfgrow_id),
         ...presentation,
         path: safePath,
+        recommendation: readRecommendation(frontmatter),
         wikiSelected: false,
         wikiTargets: [],
       };
@@ -259,6 +270,7 @@ export class RawCardService {
         id: selfGrowID(parsed.data.selfgrow_id),
         ...presentation,
         path: safePath,
+        recommendation: readRecommendation(parsed.data),
         wikiSelected: parsed.data.wiki_selected,
         wikiTargets: parsed.data.wiki_targets.map((target) => this.#assertWikiTarget(target)),
       };
@@ -416,6 +428,25 @@ function samePersistedState(persisted: z.infer<typeof rawV2Schema>, state: RawCa
     persisted.content_hash === state.contentHash &&
     persisted.distillation_status === state.distillationStatus
   );
+}
+
+function readRecommendation(frontmatter: Frontmatter): PreferenceRecommendation | null {
+  const version = frontmatter.preference_protocol_version;
+  const reason = frontmatter.recommendation_reason;
+  const score = frontmatter.recommendation_score;
+  if (
+    typeof version !== 'string' ||
+    version.length === 0 ||
+    typeof reason !== 'string' ||
+    reason.length === 0 ||
+    typeof score !== 'number' ||
+    !Number.isInteger(score) ||
+    score < 0 ||
+    score > 100
+  ) {
+    return null;
+  }
+  return { protocolVersion: version, reason, score };
 }
 
 function invalidRaw(issueCount?: number): SelfGrowError {

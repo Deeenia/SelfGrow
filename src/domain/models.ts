@@ -54,11 +54,18 @@ export interface CoreKnowledgeItem {
   title: string;
 }
 
+export interface PreferenceRecommendation {
+  protocolVersion: string;
+  reason: string;
+  score: number;
+}
+
 export interface GeneratedKnowledge {
   category: RawCategory;
   coreKnowledge: readonly CoreKnowledgeItem[];
   githubQueries: readonly string[];
   outputLanguage: Language;
+  recommendation: PreferenceRecommendation | null;
   recognitionSource: 'ai' | 'local';
   sourceLanguage: string;
   summaryMarkdown: string;

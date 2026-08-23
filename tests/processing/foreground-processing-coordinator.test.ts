@@ -33,6 +33,7 @@ const GENERATED: GeneratedKnowledge = {
   coreKnowledge: [{ explanationMarkdown: 'A durable explanation.', title: 'Key idea' }],
   githubQueries: [],
   outputLanguage: 'en',
+  recommendation: null,
   recognitionSource: 'local',
   sourceLanguage: 'en',
   summaryMarkdown: 'A concise generated summary.',

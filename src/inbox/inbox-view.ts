@@ -104,7 +104,6 @@ export class InboxView extends ItemView {
     this.contentEl.empty();
     this.contentEl.addClass('selfgrow-inbox');
     const header = this.contentEl.createDiv({ cls: 'selfgrow-inbox-header' });
-    header.createDiv({ cls: 'selfgrow-brand', text: 'SelfGrow' });
     const navigation = header.createDiv({ cls: 'selfgrow-section-navigation' });
     navigation.createEl('button', {
       attr: { 'aria-current': 'page' },

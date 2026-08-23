@@ -246,11 +246,17 @@ export class RawReviewView extends ItemView {
     updateBatch: () => void,
   ): void {
     const copy = COPY[language];
+    const group = rawReviewGroup(card);
     const swipe = container.createDiv({ cls: 'selfgrow-review-swipe' });
-    if (rawReviewGroup(card) !== 'completed') {
+    if (group !== 'completed') {
       swipe.createSpan({
         cls: 'selfgrow-review-swipe-select',
-        text: card.wikiSelected ? copy.swipeCancel : copy.swipeSelect,
+        text:
+          group === 'needs_update'
+            ? copy.swipeConfirmUpdate
+            : card.wikiSelected
+              ? copy.swipeCancel
+              : copy.swipeSelect,
       });
     }
     swipe.createSpan({ cls: 'selfgrow-review-swipe-delete', text: copy.swipeDelete });
@@ -306,6 +312,22 @@ export class RawReviewView extends ItemView {
     if (card.previewMarkdown.length > 0) {
       body.createEl('p', { cls: 'selfgrow-review-preview', text: card.previewMarkdown });
     }
+    if (card.recommendation !== null) {
+      const recommendation = body.createDiv({
+        attr: {
+          'aria-label': copy.recommendationLabel(
+            card.recommendation.score,
+            card.recommendation.reason,
+          ),
+          title: copy.preferenceVersion(card.recommendation.protocolVersion),
+        },
+        cls: 'selfgrow-review-recommendation',
+      });
+      recommendation.createEl('strong', {
+        text: copy.recommendationScore(card.recommendation.score),
+      });
+      recommendation.createSpan({ text: card.recommendation.reason });
+    }
     if (card.imagePaths[0] !== undefined) {
       const file = this.app.vault.getAbstractFileByPath(card.imagePaths[0]);
       if (file instanceof TFile) {
@@ -325,13 +347,6 @@ export class RawReviewView extends ItemView {
     if (card.wikiTargets.length > 0) {
       meta.createSpan({ text: copy.targets(card.wikiTargets.length) });
     }
-
-    if (card.wikiSelected && card.distillationStatus === 'needs_update') {
-      const actions = body.createDiv({ cls: 'selfgrow-review-actions' });
-      this.#action(actions, copy.confirmUpdate, () =>
-        this.#dependencies.service.confirmUpdate(card.path),
-      );
-    }
   }
 
   #bindGestures(
@@ -340,7 +355,8 @@ export class RawReviewView extends ItemView {
     language: Language,
     updateBatch: () => void,
   ): void {
-    const swipeRightAllowed = rawReviewGroup(card) !== 'completed';
+    const group = rawReviewGroup(card);
+    const swipeRightAllowed = group !== 'completed';
     let pointerId: number | undefined;
     let startX = 0;
     let startY = 0;
@@ -409,7 +425,7 @@ export class RawReviewView extends ItemView {
       }
       if (axis !== 'horizontal' || this.#selectionMode) return;
       event.preventDefault();
-      dragX = Math.max(swipeRightAllowed ? -120 : 0, Math.min(120, deltaX));
+      dragX = Math.max(-120, Math.min(swipeRightAllowed ? 120 : 0, deltaX));
       article.addClass('is-dragging');
       article.toggleClass('is-swiping-right', dragX > 0);
       article.toggleClass('is-swiping-left', dragX < 0);
@@ -424,7 +440,12 @@ export class RawReviewView extends ItemView {
       reset();
       if (firedLongPress) return;
       if (action > 0) {
-        if (card.wikiSelected) {
+        if (group === 'needs_update') {
+          void this.#run(async () => {
+            await this.#dependencies.service.confirmUpdate(card.path);
+            await this.refresh();
+          }, article);
+        } else if (card.wikiSelected) {
           void this.#run(async () => {
             await this.#dependencies.service.cancelSelection(card.path);
             await this.refresh();
@@ -465,16 +486,6 @@ export class RawReviewView extends ItemView {
     article.addEventListener('touchmove', containTouch, { passive: true });
     article.addEventListener('touchend', containTouch, { passive: true });
     article.addEventListener('touchcancel', containTouch, { passive: true });
-  }
-
-  #action(container: HTMLElement, label: string, action: () => Promise<void>): void {
-    const button = container.createEl('button', { text: label });
-    button.addEventListener('click', () => {
-      void this.#run(async () => {
-        await action();
-        await this.refresh();
-      }, button);
-    });
   }
 
   async #run(action: () => Promise<void>, trigger?: HTMLElement): Promise<void> {
@@ -569,7 +580,6 @@ const COPY = {
     batchSelect: 'Select Raw card',
     cancelDeposit: 'Deselect',
     collect: 'Collect',
-    confirmUpdate: 'Confirm update',
     delete: 'Delete',
     deleteBody: (count: number) =>
       `Permanently delete ${count} Raw card(s)? Existing Wiki knowledge remains.`,
@@ -592,6 +602,10 @@ const COPY = {
     page: (current: number, total: number) => `${current} / ${total}`,
     pagination: 'Raw card pages',
     previousPage: 'Previous page',
+    preferenceVersion: (version: string) => `Preference protocol ${version}`,
+    recommendationLabel: (score: number, reason: string) =>
+      `Advisory relevance ${score} out of 100. ${reason}`,
+    recommendationScore: (score: number) => `Fit ${score}`,
     review: 'Review',
     select: 'Select for distillation',
     states: {
@@ -599,10 +613,11 @@ const COPY = {
       failed: '! Distillation failed',
       needs_update: '↻ Updated; confirmation required',
       not_started: '○ Unselected',
-      processing: '… Codex processing',
-      queued: '✓ Selected; awaiting Codex',
+      processing: '… Agent processing',
+      queued: '✓ Selected; awaiting agent',
     },
     swipeCancel: 'Swipe right to deselect',
+    swipeConfirmUpdate: 'Swipe right to confirm update',
     swipeDelete: 'Swipe left to delete',
     swipeSelect: 'Swipe right to select',
     statusFilter: 'Raw status',
@@ -615,7 +630,6 @@ const COPY = {
     batchSelect: '勾选 Raw 卡片',
     cancelDeposit: '取消沉淀',
     collect: '收集',
-    confirmUpdate: '确认更新',
     delete: '删除',
     deleteBody: (count: number) => `永久删除 ${count} 张 Raw 卡片？已经沉淀的 Wiki 知识不会删除。`,
     deleteTitle: '删除 Raw？',
@@ -637,6 +651,9 @@ const COPY = {
     page: (current: number, total: number) => `${current} / ${total}`,
     pagination: 'Raw 卡片分页',
     previousPage: '上一页',
+    preferenceVersion: (version: string) => `偏好协议 ${version}`,
+    recommendationLabel: (score: number, reason: string) => `参考推荐度 ${score} 分。${reason}`,
+    recommendationScore: (score: number) => `推荐度 ${score}`,
     review: '筛选',
     select: '选择沉淀',
     states: {
@@ -644,10 +661,11 @@ const COPY = {
       failed: '! 沉淀失败',
       needs_update: '↻ 内容已更新，需要确认',
       not_started: '○ 未选择',
-      processing: '… Codex 处理中',
-      queued: '✓ 已选择，等待 Codex',
+      processing: '… 智能体处理中',
+      queued: '✓ 已选择，等待智能体',
     },
     swipeCancel: '右滑取消沉淀',
+    swipeConfirmUpdate: '右滑确认更新',
     swipeDelete: '左滑删除',
     swipeSelect: '右滑选择沉淀',
     statusFilter: 'Raw 状态',

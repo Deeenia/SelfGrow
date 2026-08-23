@@ -750,17 +750,26 @@ export default class SelfGrowPlugin extends Plugin implements SelfGrowSettingsHo
   }
 
   async #openInbox(): Promise<void> {
-    const leaf =
-      this.app.workspace.getLeavesOfType(INBOX_VIEW_TYPE)[0] ?? this.app.workspace.getLeaf(true);
-    await leaf.setViewState({ active: true, type: INBOX_VIEW_TYPE });
-    await this.app.workspace.revealLeaf(leaf);
+    await this.#openSelfGrowView(INBOX_VIEW_TYPE);
   }
 
   async #openReview(): Promise<void> {
+    await this.#openSelfGrowView(RAW_REVIEW_VIEW_TYPE);
+  }
+
+  async #openSelfGrowView(
+    type: typeof INBOX_VIEW_TYPE | typeof RAW_REVIEW_VIEW_TYPE,
+  ): Promise<void> {
+    const leaves = [
+      ...this.app.workspace.getLeavesOfType(INBOX_VIEW_TYPE),
+      ...this.app.workspace.getLeavesOfType(RAW_REVIEW_VIEW_TYPE),
+    ];
     const leaf =
-      this.app.workspace.getLeavesOfType(RAW_REVIEW_VIEW_TYPE)[0] ??
-      this.app.workspace.getLeaf(true);
-    await leaf.setViewState({ active: true, type: RAW_REVIEW_VIEW_TYPE });
+      this.app.workspace.getLeavesOfType(type)[0] ?? leaves[0] ?? this.app.workspace.getLeaf(true);
+    await leaf.setViewState({ active: true, type });
+    for (const duplicate of leaves) {
+      if (duplicate !== leaf) duplicate.detach();
+    }
     await this.app.workspace.revealLeaf(leaf);
   }
 

@@ -12,6 +12,7 @@
     "noImplicitOverride": true,
     "noImplicitReturns": true,
     "noUncheckedIndexedAccess": true,
+    "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,
     "target": "ES2021"
