@@ -61,7 +61,11 @@ import {
   serializeSettings,
   type SelfGrowSettings,
 } from './settings';
-import { SelfGrowSettingTab, type SelfGrowSettingsHost } from './settings/selfgrow-setting-tab';
+import {
+  observeNativeSecretAddKeyButtons,
+  SelfGrowSettingTab,
+  type SelfGrowSettingsHost,
+} from './settings/selfgrow-setting-tab';
 import { URLService } from './url';
 import { normalizeObsidianPath } from './vault/obsidian-path-normalizer';
 import { PathGuard, resolveSelfGrowRootPath } from './vault';
@@ -86,6 +90,7 @@ export default class SelfGrowPlugin extends Plugin implements SelfGrowSettingsHo
     this.#settings = loadSettings(storedSettings);
     await this.#persistData();
     this.addSettingTab(new SelfGrowSettingTab(this.app, this));
+    this.register(observeNativeSecretAddKeyButtons());
     this.registerView(
       INBOX_VIEW_TYPE,
       (leaf) =>

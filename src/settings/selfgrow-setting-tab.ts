@@ -446,10 +446,24 @@ export class SelfGrowSettingTab extends PluginSettingTab {
   }
 }
 
+export function observeNativeSecretAddKeyButtons(): () => void {
+  const hide = (): void => {
+    for (const element of document.querySelectorAll<HTMLElement>('button, a')) {
+      const label = element.textContent?.trim() ?? '';
+      if (/^(?:������Կ|Add key|Add Key)$/i.test(label)) {
+        element.addClass('selfgrow-hidden');
+      }
+    }
+  };
+  hide();
+  const observer = new MutationObserver(hide);
+  observer.observe(document.body, { childList: true, subtree: true });
+  return () => observer.disconnect();
+}
+
 class ManageChatSecretModal extends Modal {
   readonly #onClosed: () => void;
   readonly #secretName: string;
-  #observer: MutationObserver | null = null;
 
   constructor(app: App, secretName: string, onClosed: () => void) {
     super(app);
@@ -462,26 +476,9 @@ class ManageChatSecretModal extends Modal {
     new Setting(this.contentEl).addComponent((element) =>
       new SecretComponent(this.app, element).setValue(this.#secretName),
     );
-    this.#hideNativeAddKeyButton();
-  }
-
-  #hideNativeAddKeyButton(): void {
-    const hide = (): void => {
-      for (const element of document.querySelectorAll<HTMLElement>('button, a')) {
-        const label = element.textContent?.trim() ?? '';
-        if (/^(?:������Կ|Add key|Add Key)$/i.test(label)) {
-          element.addClass('selfgrow-hidden');
-        }
-      }
-    };
-    hide();
-    this.#observer = new MutationObserver(hide);
-    this.#observer.observe(document.body, { childList: true, subtree: true });
   }
 
   override onClose(): void {
-    this.#observer?.disconnect();
-    this.#observer = null;
     this.#onClosed();
   }
 }
