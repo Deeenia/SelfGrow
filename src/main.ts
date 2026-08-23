@@ -58,7 +58,10 @@ import {
   loadSettings,
   markConnectionTested,
   markExtractionTested,
+  parsePreferenceProfileJSON,
   serializeSettings,
+  type PreferenceProfile,
+  type PreferenceProfileStatus,
   type SelfGrowSettings,
 } from './settings';
 import { SelfGrowSettingTab, type SelfGrowSettingsHost } from './settings/selfgrow-setting-tab';
@@ -196,12 +199,30 @@ export default class SelfGrowPlugin extends Plugin implements SelfGrowSettingsHo
     return this.#settings;
   }
 
+  async getPreferenceProfileStatus(): Promise<PreferenceProfileStatus> {
+    return (await this.#loadPreferenceProfile()).status;
+  }
+
+  async openPreferenceProfile(): Promise<void> {
+    const path = siblingPreferenceProfilePath(this.#settings.rootPath);
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof TFile)) {
+      new Notice(
+        this.#settings.language === 'zh-CN'
+          ? `尚未找到偏好协议：${path}`
+          : `Preference profile not found: ${path}`,
+      );
+      return;
+    }
+    await this.app.workspace.getLeaf(false).openFile(file);
+  }
+
   async listChatModels(): Promise<ModelCatalogEntry[]> {
     return new ModelCatalogService({
       configuration: () => this.#settings.chat,
       http: new ObsidianHTTPTransport(),
       secretResolver: new ObsidianSecretResolver(this.app.secretStorage),
-    }).listWithFallback(this.#settings.language);
+    }).list(this.#settings.language);
   }
 
   async ensureRawFolder(path: string): Promise<void> {
@@ -320,6 +341,8 @@ export default class SelfGrowPlugin extends Plugin implements SelfGrowSettingsHo
             };
           },
         },
+        preferenceKeywords: () => this.#settings.preferenceKeywords,
+        preferenceProfile: () => this.#activePreferenceProfile(),
         secretResolver,
       });
       const notes = new CanonicalKnowledgeNoteCommitter({
@@ -348,6 +371,8 @@ export default class SelfGrowPlugin extends Plugin implements SelfGrowSettingsHo
       this.#recognitionGenerator = new RawEvidenceGenerator({
         configuration: () => this.#settings.chat,
         http,
+        preferenceKeywords: () => this.#settings.preferenceKeywords,
+        preferenceProfile: () => this.#activePreferenceProfile(),
         secretResolver,
       });
       this.#coordinator = new ForegroundProcessingCoordinator({
@@ -390,6 +415,35 @@ export default class SelfGrowPlugin extends Plugin implements SelfGrowSettingsHo
       await this.app.fileManager.renameFile(legacyQueue, queuePath);
     }
     await this.updateSelfGrowSettings((settings) => ({ ...settings, rootPath: target }));
+  }
+
+  async #activePreferenceProfile(): Promise<PreferenceProfile | null> {
+    if (!this.#settings.preferenceProfileEnabled) return null;
+    return (await this.#loadPreferenceProfile()).profile;
+  }
+
+  async #loadPreferenceProfile(): Promise<{
+    profile: PreferenceProfile | null;
+    status: PreferenceProfileStatus;
+  }> {
+    const path = siblingPreferenceProfilePath(this.#settings.rootPath);
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (file === null) return { profile: null, status: { path, state: 'missing' } };
+    if (!(file instanceof TFile)) return { profile: null, status: { path, state: 'invalid' } };
+    try {
+      const profile = parsePreferenceProfileJSON(await this.app.vault.cachedRead(file));
+      return {
+        profile,
+        status: {
+          path,
+          profileVersion: profile.profileVersion,
+          state: 'ready',
+          updatedAt: profile.updatedAt,
+        },
+      };
+    } catch {
+      return { profile: null, status: { path, state: 'invalid' } };
+    }
   }
 
   async #retry(id: Parameters<InboxOperationalService['retry']>[0]): Promise<void> {
@@ -935,6 +989,12 @@ function siblingWikiRoot(selfGrowRoot: string): string {
   const segments = selfGrowRoot.split('/');
   segments.pop();
   return [...segments, 'Wiki'].join('/');
+}
+
+function siblingPreferenceProfilePath(rawRoot: string): string {
+  const segments = normalizeObsidianPath(rawRoot).split('/');
+  segments.pop();
+  return [...segments, 'Preferences', 'preference-profile.json'].join('/');
 }
 
 function siblingQueuePath(rawRoot: string): VaultPath {

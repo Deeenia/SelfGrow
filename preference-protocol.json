@@ -1,26 +1,13 @@
 {
-  "version": "2026-08-22",
-  "basis": "User-reviewed preferences derived only from explicitly authorized SelfGrow, RAG, and VQA project records and selected Codex tasks. Course Q&A, private tasks, all unlisted projects and tasks, credentials, private Vault content, identity claims, and inferred personal experience were excluded.",
-  "purpose": "Provide an advisory relevance score for newly captured Raw material. The score must never auto-select, reject, delete, or distill content.",
-  "preferences": [
-    "Practical AI, agent, RAG, research, and engineering material that solves real problems and can be reused in projects or working workflows",
-    "Clear mechanisms, reproducible steps, source or code evidence, strong baseline comparisons, explicit limitations, and verifiable outcomes",
-    "Local-first and privacy-preserving tools with user-owned data, explicit authorization, rollback boundaries, and safe deletion",
-    "Simple, native, low-friction implementations with mobile-first interaction and minimal redundant controls, decoration, or dependencies",
-    "Clearly scoped workflows that preserve original material and unrelated content, with reviewable proposals before important writes",
-    "Minimum viable end-to-end delivery before feature expansion, without sacrificing safety, recoverability, or data integrity",
-    "Honest failure states, capability boundaries, and residual risks, with automated verification clearly separated from desktop or mobile real-device acceptance",
-    "Evaluation against the strongest relevant baseline and the actual objective, rather than completion rate, architectural complexity, agent count, or proxy metrics",
-    "Cost-, latency-, and reliability-aware model workflows, using independent cross-review for higher-risk work without repetitive control that unnecessarily slows execution",
-    "Concise, understandable, actionable explanations, supported by diagrams, comparison tables, examples, or bilingual material when they materially improve clarity",
-    "A single explicit selfgrow-wiki entry point for repository initialization, selected-Raw discovery, rule-based distillation, relationship linking, and approved structural or preference updates"
-  ],
-  "downrank": [
-    "Marketing copy, hype, vague trend commentary, unverified claims, or content without usable mechanisms or evidence",
-    "Complex architectures, agent stacking, premature expansion, or speculative features without measured benefit for the current problem",
-    "Automatic selection, distillation, deletion, hidden writes, or broad mutations that bypass user review and approval",
-    "Shallow lists, repeated summaries, author promotion, untraceable output, or material that adds no durable knowledge",
-    "Solutions that optimize proxy metrics, underperform the strongest relevant baseline while claiming success, or hide failures, costs, and applicability limits"
+  "version": "user-keywords-profile-v2",
+  "basis": "The base score uses the interested and uninterested keywords explicitly stored in the current SelfGrow settings. An optional user-approved profile may add validated weighted signals at runtime; no personal profile is bundled with the plugin.",
+  "purpose": "Provide an advisory relevance score and disclose the configured keywords and approved profile signals matched by newly captured Raw material. The score must never auto-select, reject, delete, order, or distill content.",
+  "rules": [
+    "Report only exact configured keyword strings in the matched-keyword arrays",
+    "Use semantic evidence from the source rather than requiring a literal text occurrence",
+    "Do not invent interests or profile signal IDs, infer identity, or use Vault material outside the current capture",
+    "When a personal profile is active, the model reports exact matched signal IDs and the plugin applies their declared weights to the base score",
+    "Explain the score in one concise sentence and keep a neutral score when no configured keyword matches"
   ],
   "rubric": {
     "0-39": "Weak fit or low-signal material with little reusable value",

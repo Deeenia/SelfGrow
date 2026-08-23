@@ -22,6 +22,7 @@ const endpointSettingsSchema = z.strictObject({
   baseURL: z.string(),
   connectionTest: connectionTestSchema.nullable(),
   model: z.string(),
+  multimodal: z.boolean().default(false),
   preset: providerPresetSchema,
   secretName: z.string(),
 });
@@ -46,7 +47,14 @@ const extractionProviderSettingsSchema = z.strictObject({
 const chatSecretProfileSchema = z.strictObject({
   baseURL: z.string(),
   model: z.string(),
+  multimodal: z.boolean().default(false),
   preset: providerPresetSchema,
+});
+
+const preferenceKeywordSchema = z.string().min(1).max(40);
+const preferenceKeywordsSchema = z.strictObject({
+  interested: z.array(preferenceKeywordSchema).max(30).default([]),
+  uninterested: z.array(preferenceKeywordSchema).max(30).default([]),
 });
 
 export const selfGrowSettingsSchema = z.strictObject({
@@ -54,6 +62,8 @@ export const selfGrowSettingsSchema = z.strictObject({
   chatSecretProfiles: z.record(z.string().min(1), chatSecretProfileSchema).default({}),
   extraction: extractionProviderSettingsSchema.nullable().default(null),
   language: z.enum(LANGUAGES),
+  preferenceKeywords: preferenceKeywordsSchema.default({ interested: [], uninterested: [] }),
+  preferenceProfileEnabled: z.boolean().default(true),
   rootPath: z.string().min(1),
   schemaVersion: z.literal(1),
 });
@@ -66,6 +76,7 @@ export type ExtractionConnectionTestMetadata = z.infer<typeof extractionConnecti
 export type ExtractionProviderSettings = z.infer<typeof extractionProviderSettingsSchema>;
 export type EndpointSettings = z.infer<typeof endpointSettingsSchema>;
 export type ChatSecretProfile = z.infer<typeof chatSecretProfileSchema>;
+export type PreferenceKeywordSettings = z.infer<typeof preferenceKeywordsSchema>;
 export type SelfGrowSettings = z.infer<typeof selfGrowSettingsSchema>;
 
 export interface ConnectionTestResult {
@@ -85,6 +96,8 @@ export function createDefaultSettings(): SelfGrowSettings {
     chatSecretProfiles: {},
     extraction: null,
     language: 'zh-CN',
+    preferenceKeywords: { interested: [], uninterested: [] },
+    preferenceProfileEnabled: true,
     rootPath: 'Raw',
     schemaVersion: 1,
   };
@@ -101,6 +114,9 @@ export function loadSettings(input: unknown): SelfGrowSettings {
     chatSecretProfiles: (source as { chatSecretProfiles?: unknown }).chatSecretProfiles ?? {},
     extraction: (source as { extraction?: unknown }).extraction,
     language: (source as { language?: unknown }).language,
+    preferenceKeywords: (source as { preferenceKeywords?: unknown }).preferenceKeywords,
+    preferenceProfileEnabled: (source as { preferenceProfileEnabled?: unknown })
+      .preferenceProfileEnabled,
     rootPath: (source as { rootPath?: unknown }).rootPath,
     schemaVersion: (source as { schemaVersion?: unknown }).schemaVersion,
   });
@@ -142,6 +158,7 @@ export function changeChatSecret(settings: SelfGrowSettings, secretName: string)
       ...settings.chat,
       connectionTest: null,
       model: '',
+      multimodal: false,
       preset: 'unconfigured',
       secretName,
     },
@@ -158,6 +175,10 @@ export function chatModelLoadConfigurationReady(
     secretValue !== null &&
     secretValue.trim().length > 0
   );
+}
+
+export function preferenceKeywordsReady(keywords: PreferenceKeywordSettings): boolean {
+  return keywords.interested.length > 0 && keywords.uninterested.length > 0;
 }
 
 export function updateExtraction(
@@ -232,6 +253,7 @@ export function chatSecretProfileFor(endpoint: EndpointSettings): ChatSecretProf
   return {
     baseURL: endpoint.baseURL,
     model: endpoint.model,
+    multimodal: endpoint.multimodal,
     preset: endpoint.preset,
   };
 }
@@ -269,14 +291,24 @@ export function applyChatSecretProfile(
   };
 }
 
-type EndpointConfiguration = Pick<EndpointSettings, 'baseURL' | 'model' | 'preset' | 'secretName'>;
+type EndpointConfiguration = Pick<
+  EndpointSettings,
+  'baseURL' | 'model' | 'multimodal' | 'preset' | 'secretName'
+>;
 type ExtractionProviderConfiguration = Pick<
   ExtractionProviderSettings,
   'baseURL' | 'disclosureAccepted' | 'preset' | 'secretName'
 >;
 
 function emptyEndpoint(preset: ProviderPreset): EndpointSettings {
-  return { baseURL: '', connectionTest: null, model: '', preset, secretName: '' };
+  return {
+    baseURL: '',
+    connectionTest: null,
+    model: '',
+    multimodal: false,
+    preset,
+    secretName: '',
+  };
 }
 
 function emptyExtractionProvider(preset: ExtractionProviderPreset): ExtractionProviderSettings {
@@ -300,7 +332,13 @@ function updateEndpoint(
 }
 
 function endpointFingerprint(endpoint: EndpointConfiguration): string {
-  return JSON.stringify([endpoint.preset, endpoint.baseURL, endpoint.model, endpoint.secretName]);
+  return JSON.stringify([
+    endpoint.preset,
+    endpoint.baseURL,
+    endpoint.model,
+    endpoint.multimodal,
+    endpoint.secretName,
+  ]);
 }
 
 function invalidateStaleConnectionTest(endpoint: EndpointSettings): EndpointSettings {

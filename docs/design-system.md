@@ -112,7 +112,7 @@ Use text plus icon:
 
 Do not show fake percentages. A selected card remains visibly selected after completion. Cancelling it states that existing Wiki knowledge will remain.
 
-Recommendation scores are advisory metadata, not state or a primary action. Cards without a valid AI score show nothing in its place. Never use recommendation color, ordering, or automation to override the user's explicit selection decision.
+Recommendation scores are advisory metadata, not state or a primary action. Settings expose one compact preference entry that opens a dedicated picker: interested and uninterested groups draw from the same neutral learning, academic-discipline, and research-skill presets, shown as 40–44 px pill-shaped bubbles. The user decides whether each topic should raise or lower a score. Each group has a “New batch” control that rotates only unselected candidates; selected bubbles remain visible and selected across refreshes. Both groups require at least one item before Save. Custom input stays hidden behind an add bubble and custom values become removable bubbles after entry. A secondary “Deep preference profile” row reports the Vault-local profile state/version, offers enable/disable and view controls, and explains that a missing or invalid profile leaves keyword scoring active. A scored card shows its one-line reason plus compact labels for exact matched interested/uninterested keywords and any approved profile signals. Cards without a valid AI score show nothing in its place. Never use recommendation color, ordering, or automation to override the user's explicit selection decision.
 
 ## 6. Agent Handoff
 
@@ -134,7 +134,7 @@ Canonical Raw sections remain:
 
 `我的笔记` starts empty and is always user-owned. It is the primary in-note source for future personal-experience synthesis.
 
-Pure-image cards display the original image and one concise visual preview. Text-heavy screenshots, diagrams, interfaces, and photographs are interpreted visually; OCR alone is insufficient.
+Pure-image cards display the original image and one concise visual preview. A known multimodal model is enabled automatically, while a custom model requires an explicit “Image understanding” setting. Successful visual cards are labeled as AI recognition and may carry the same keyword score/matches as text cards; unsupported or failed vision remains an honest local fallback. Text-heavy screenshots, diagrams, interfaces, and photographs are interpreted visually; OCR alone is insufficient.
 
 ## 8. Wiki Page Experience
 

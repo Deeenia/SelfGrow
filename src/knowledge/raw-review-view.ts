@@ -327,6 +327,24 @@ export class RawReviewView extends ItemView {
         text: copy.recommendationScore(card.recommendation.score),
       });
       recommendation.createSpan({ text: card.recommendation.reason });
+      if (card.recommendation.matchedInterestedKeywords.length > 0) {
+        recommendation.createSpan({
+          cls: 'selfgrow-review-keyword-match is-interested',
+          text: copy.interestedKeywordMatches(card.recommendation.matchedInterestedKeywords),
+        });
+      }
+      if (card.recommendation.matchedUninterestedKeywords.length > 0) {
+        recommendation.createSpan({
+          cls: 'selfgrow-review-keyword-match is-uninterested',
+          text: copy.uninterestedKeywordMatches(card.recommendation.matchedUninterestedKeywords),
+        });
+      }
+      if ((card.recommendation.matchedPreferenceSignals?.length ?? 0) > 0) {
+        recommendation.createSpan({
+          cls: 'selfgrow-review-keyword-match is-profile',
+          text: copy.preferenceSignalMatches(card.recommendation.matchedPreferenceSignals ?? []),
+        });
+      }
     }
     if (card.imagePaths[0] !== undefined) {
       const file = this.app.vault.getAbstractFileByPath(card.imagePaths[0]);
@@ -596,6 +614,7 @@ const COPY = {
       queued: 'Awaiting distillation',
       unselected: 'Unselected',
     },
+    interestedKeywordMatches: (keywords: readonly string[]) => `Interested: ${keywords.join(', ')}`,
     keep: 'Keep',
     more: 'More actions',
     nextPage: 'Next page',
@@ -603,6 +622,7 @@ const COPY = {
     pagination: 'Raw card pages',
     previousPage: 'Previous page',
     preferenceVersion: (version: string) => `Preference protocol ${version}`,
+    preferenceSignalMatches: (signals: readonly string[]) => `Profile: ${signals.join(', ')}`,
     recommendationLabel: (score: number, reason: string) =>
       `Advisory relevance ${score} out of 100. ${reason}`,
     recommendationScore: (score: number) => `Fit ${score}`,
@@ -622,6 +642,8 @@ const COPY = {
     swipeSelect: 'Swipe right to select',
     statusFilter: 'Raw status',
     targets: (count: number) => `${count} Wiki target(s)`,
+    uninterestedKeywordMatches: (keywords: readonly string[]) =>
+      `Not interested: ${keywords.join(', ')}`,
   },
   'zh-CN': {
     actionFailed: 'Raw 操作失败。',
@@ -645,6 +667,7 @@ const COPY = {
       queued: '待沉淀',
       unselected: '未选择',
     },
+    interestedKeywordMatches: (keywords: readonly string[]) => `命中兴趣：${keywords.join('、')}`,
     keep: '保留',
     more: '更多操作',
     nextPage: '下一页',
@@ -652,6 +675,7 @@ const COPY = {
     pagination: 'Raw 卡片分页',
     previousPage: '上一页',
     preferenceVersion: (version: string) => `偏好协议 ${version}`,
+    preferenceSignalMatches: (signals: readonly string[]) => `协议命中：${signals.join('、')}`,
     recommendationLabel: (score: number, reason: string) => `参考推荐度 ${score} 分。${reason}`,
     recommendationScore: (score: number) => `推荐度 ${score}`,
     review: '筛选',
@@ -670,6 +694,8 @@ const COPY = {
     swipeSelect: '右滑选择沉淀',
     statusFilter: 'Raw 状态',
     targets: (count: number) => `关联 ${count} 个 Wiki 页面`,
+    uninterestedKeywordMatches: (keywords: readonly string[]) =>
+      `命中非兴趣：${keywords.join('、')}`,
   },
 } as const;
 

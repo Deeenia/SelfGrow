@@ -114,9 +114,16 @@ export class CanonicalKnowledgeNoteCommitter implements KnowledgeNoteCommitPort 
       imported_at: input.capture.importedAt,
       normalized_url: input.capture.normalizedURL,
       output_language: input.generated.outputLanguage,
+      recommendation_interested_keywords:
+        input.generated.recommendation?.matchedInterestedKeywords ?? null,
+      recommendation_preference_signals:
+        input.generated.recommendation?.matchedPreferenceSignals ?? null,
+      preference_profile_version: input.generated.recommendation?.profileVersion ?? null,
       preference_protocol_version: input.generated.recommendation?.protocolVersion ?? null,
       recommendation_reason: input.generated.recommendation?.reason ?? null,
       recommendation_score: input.generated.recommendation?.score ?? null,
+      recommendation_uninterested_keywords:
+        input.generated.recommendation?.matchedUninterestedKeywords ?? null,
       recognition_source: input.generated.recognitionSource,
       selfgrow: true,
       selfgrow_category: collectionFolderName(input.capture.collectionFolder),

@@ -129,12 +129,20 @@ describe('Task-046 Raw schema and selection state', () => {
     await fixture.frontmatter.process(fixture.path, (current) => ({
       ...current,
       preference_protocol_version: '2026-08-21',
+      preference_profile_version: 'profile-v1',
+      recommendation_interested_keywords: ['本地优先', 'RAG'],
+      recommendation_preference_signals: ['可复现证据'],
       recommendation_reason: '符合可复用、可验证和本地优先的项目偏好。',
       recommendation_score: 86,
+      recommendation_uninterested_keywords: ['营销炒作'],
     }));
 
     await expect(fixture.service.read(fixture.path)).resolves.toMatchObject({
       recommendation: {
+        matchedInterestedKeywords: ['本地优先', 'RAG'],
+        matchedPreferenceSignals: ['可复现证据'],
+        matchedUninterestedKeywords: ['营销炒作'],
+        profileVersion: 'profile-v1',
         protocolVersion: '2026-08-21',
         reason: '符合可复用、可验证和本地优先的项目偏好。',
         score: 86,

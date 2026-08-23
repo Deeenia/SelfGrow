@@ -82,6 +82,19 @@ D:\ai_test\test\test\.obsidian\plugins\selfgrow\
   - DeepSeek：`deepseek-v4-flash`、`deepseek-v4-pro`
   - Qwen：`qwen3.8-max`、`qwen3.7-plus`、`qwen3.7-flash`
   - Kimi：`kimi-k3`、`kimi-k2.7-code`、`kimi-k2.7-code-highspeed`、`kimi-k2.6`
+- 模型目录鉴权、网络或协议失败时不再静默显示本地推荐表，设置页会保留真实错误，不再提示“已加载”。
+- 新增“图片理解”能力开关：已知多模态模型自动开启，自定义模型可由用户明确启用。
+
+### Visual cards & recommendation preferences
+
+- 纯图片在当前模型支持图片输入时，通过一次多模态请求生成 AI 分类、标题和视觉预览；不支持或调用失败时仍诚实保留原图并标记为本地降级。
+- 设置页新增“选择推荐偏好”入口；“感兴趣”和“不感兴趣”共享一套面向学习、学术与科研技能的中性主题气泡，由用户决定同一主题应提高还是降低推荐度。
+- 两栏均可点击“换一批”浏览更多预设；刷新仅替换未选候选，已经选中的气泡会固定保留，两组都至少选择一个后才可保存并对新卡片生成推荐度。
+- 自定义关键词输入默认隐藏，只有点击“添加自定义关键词”时出现；自定义词保存后同样显示为可点击删除的气泡。
+- 新增 Vault 本地“深层偏好协议”：`selfgrow-wiki` Skill 只依据用户授权的项目摘要生成候选，先校验和展示，批准后才写入 `Preferences/preference-profile.json`；插件动态读取、可停用或查看，缺失/损坏时退回关键词评分。
+- 模型只返回协议中实际命中的信号 ID，插件拒绝编造 ID 并应用已批准权重；来源项目名、路径和摘要记录不会发送给评分模型。
+- 推荐度只使用当前捕获材料和用户配置的关键词，不再随插件捆绑个人偏好。
+- Raw frontmatter 和筛选卡片记录并展示实际命中的兴趣/非兴趣关键词；模型返回未配置的关键词会被拒绝，而不是伪造成用户偏好。
 
 ### Chat connection test
 
@@ -120,9 +133,11 @@ D:\ai_test\test\test\.obsidian\plugins\selfgrow\
   - `format:check` 通过；
   - `lint` 通过；
   - `typecheck` 通过；
-  - 35 个测试文件，288 个测试全部通过；
+  - 36 个测试文件，294 个测试全部通过；
   - Python guard `py_compile` 通过；
   - Python guard `self-test` 通过。
+- 深层偏好协议构建通过：生产包 `main.js` 567,452 bytes（gzip 139,015 bytes），低于 750 KiB 预算且无 Node/Electron 移动端禁用导入。
+- 最新 `main.js`、`manifest.json`、`styles.css` 已安装到 `D:\ai_test\test_remote\test_remote\.obsidian\plugins\selfgrow\`，三者与源码 SHA-256 一致；安装前用户已更新的 `data.json` 保持 SHA-256 `A58634CF2DB5B6C2CEAA1FA65F95533D267787F0F8F9A89B81C154F65CE10B66` 未变。
 
 ### Git status
 

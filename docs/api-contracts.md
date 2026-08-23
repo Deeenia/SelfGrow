@@ -54,6 +54,13 @@ interface GeneratedKnowledge {
   coreKnowledge: CoreKnowledgeItem[];
   githubQueries: string[];
   outputLanguage: Language;
+  recommendation: {
+    matchedInterestedKeywords: string[];
+    matchedUninterestedKeywords: string[];
+    protocolVersion: string;
+    reason: string;
+    score: number;
+  } | null;
   recognitionSource: 'ai' | 'local';
   sourceLanguage: string;
   summaryMarkdown: string;
@@ -61,7 +68,7 @@ interface GeneratedKnowledge {
 }
 ```
 
-New Raw cards are written only under the three fixed category folders. The recognition card (`RawEvidenceGenerator.recognizeRaw`) returns `{category, title, preview, githubQueries}` from one bounded AI call with at most one constrained repair, then a deterministic local fallback (`recognitionSource: 'local'`). The GitHub name resolver (`resolveGitHubName`) returns `unique` (single exact match), `multiple` (up to three candidates for confirmation), or `none` (no URL fabricated). Existing schema-v1 Knowledge cards map to unselected/not-started until migrated and are never moved automatically.
+New Raw cards are written only under the three fixed category folders. The recognition card (`RawEvidenceGenerator.recognizeRaw`) returns `{category, title, preview, githubQueries, recommendation}` from one bounded AI call with at most one constrained repair, then a deterministic local fallback (`recognitionSource: 'local'`). Recommendation is `null` until the user configures both keyword groups; otherwise every reported match must resolve to an exact configured keyword. Pure-image visual recognition follows the same metadata contract in one multimodal request and carries an explicit `ai`/`local` source marker. The GitHub name resolver (`resolveGitHubName`) returns `unique` (single exact match), `multiple` (up to three candidates for confirmation), or `none` (no URL fabricated). Existing schema-v1 Knowledge cards map to unselected/not-started until migrated and are never moved automatically.
 
 ## 4. Review Contract
 
@@ -124,6 +131,8 @@ The `selfgrow-wiki` skill must:
 7. apply writes only under the Vault-root sibling `Wiki/` plus approved Raw metadata under `SelfGrow/Knowledge/`
 8. preserve `我的经验` exactly
 9. update `Index.md`, append `Log.md`, and record Raw targets/status
+
+For a personal preference profile, the Skill separately reads only user-authorized project summaries, writes a temporary candidate outside the Vault, validates and displays the complete candidate, and waits for explicit approval before atomically writing sibling `Preferences/preference-profile.json`. The plugin never scans project repositories or Codex history.
 
 Before user approval, it must not change Wiki files.
 

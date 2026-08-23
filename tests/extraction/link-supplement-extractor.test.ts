@@ -27,7 +27,12 @@ function request(patch: Partial<ExtractionRequest> = {}): ExtractionRequest {
 
 const vision: CaptureVisionPort = {
   preview: () =>
-    Promise.resolve({ preview: '图片展示了一个清晰的系统架构。', title: '系统架构图' }),
+    Promise.resolve({
+      category: 'Project',
+      preview: '图片展示了一个清晰的系统架构。',
+      recommendation: null,
+      title: '系统架构图',
+    }),
   recognize: () => Promise.resolve('截图识别出的技术说明文字'),
 };
 
@@ -160,6 +165,11 @@ describe('LinkSupplementExtractor', () => {
         body: '图片展示了一个清晰的系统架构。',
         route: 'visual_preview',
         title: '系统架构图',
+        visualRecognition: {
+          category: 'Project',
+          recommendation: null,
+          source: 'ai',
+        },
       },
       kind: 'complete',
     });
@@ -192,6 +202,11 @@ describe('LinkSupplementExtractor', () => {
         body: '原图已保留；当前模型无法生成视觉描述，选择沉淀后可由智能体直接理解图片。',
         route: 'visual_preview',
         title: '架构截图',
+        visualRecognition: {
+          category: 'Experience',
+          recommendation: null,
+          source: 'local',
+        },
       },
       kind: 'complete',
     });

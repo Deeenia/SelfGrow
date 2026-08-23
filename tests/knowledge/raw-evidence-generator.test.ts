@@ -7,6 +7,7 @@ import {
   serializeKnowledgeNoteContent,
 } from '../../src/knowledge';
 import { FakeSecretResolver, FixtureHTTPTransport } from '../harness';
+import type { PreferenceProfile } from '../../src/settings';
 
 const CONTENT: ExtractedContent = {
   body: '## First\n\nComplete source body.\n\n## Second\n\nMore evidence.',
@@ -39,6 +40,8 @@ function withRecommendation(content: string): string {
   try {
     const parsed = JSON.parse(content) as Record<string, unknown>;
     return JSON.stringify({
+      matchedInterestedKeywords: ['可复用'],
+      matchedUninterestedKeywords: [],
       recommendationReason: '符合可复用、可验证和实际工程价值偏好。',
       recommendationScore: 82,
       ...parsed,
@@ -48,19 +51,46 @@ function withRecommendation(content: string): string {
   }
 }
 
-function generator(http: FixtureHTTPTransport): RawEvidenceGenerator {
+function generator(
+  http: FixtureHTTPTransport,
+  preferenceProfile?: PreferenceProfile,
+): RawEvidenceGenerator {
   return new RawEvidenceGenerator({
     configuration: () => ({
       baseURL: 'https://api.example.com/v1',
       connectionTest: null,
       model: 'fixture-model',
+      multimodal: false,
       preset: 'custom',
       secretName: 'Chat Secret',
     }),
     http,
+    preferenceKeywords: () => ({
+      interested: ['可复用', '本地优先'],
+      uninterested: ['营销炒作'],
+    }),
+    ...(preferenceProfile === undefined
+      ? {}
+      : { preferenceProfile: () => Promise.resolve(preferenceProfile) }),
     secretResolver: new FakeSecretResolver({ 'Chat Secret': 'fixture-secret' }),
   });
 }
+
+const PREFERENCE_PROFILE: PreferenceProfile = {
+  schemaVersion: 1,
+  profileVersion: 'profile-v1',
+  updatedAt: '2026-08-24T01:00:00Z',
+  positiveSignals: [
+    {
+      description: '包含可以重复验证的数据、代码或步骤。',
+      id: 'reproducible-evidence',
+      label: '可复现证据',
+      weight: 12,
+    },
+  ],
+  negativeSignals: [],
+  sources: [{ project: 'Private fixture', summaryHash: 'a'.repeat(64) }],
+};
 
 describe('RawEvidenceGenerator', () => {
   it('prepares a local preview and preserves the complete Markdown body without AI', async () => {
@@ -99,13 +129,29 @@ describe('RawEvidenceGenerator', () => {
         route: 'visual_preview',
         sourceLanguage: 'zh-CN',
         title: '服务队列架构图',
+        visualRecognition: {
+          category: 'Project',
+          recommendation: {
+            matchedInterestedKeywords: ['系统架构'],
+            matchedUninterestedKeywords: [],
+            protocolVersion: 'user-keywords-profile-v2',
+            reason: '图片命中了系统架构关键词。',
+            score: 84,
+          },
+          source: 'ai',
+        },
       },
       'zh-CN',
     );
 
     expect(result).toMatchObject({
-      category: 'Experience',
+      category: 'Project',
       coreKnowledge: [{ title: '视觉边界' }],
+      recognitionSource: 'ai',
+      recommendation: {
+        matchedInterestedKeywords: ['系统架构'],
+        score: 84,
+      },
       summaryMarkdown: '图片展示了由服务、队列和数据库组成的系统架构。',
       title: '服务队列架构图',
     });
@@ -256,7 +302,9 @@ describe('RawEvidenceGenerator', () => {
       category: 'Skill',
       githubQueries: ['Learn Harness Engineering'],
       recommendation: {
-        protocolVersion: '2026-08-22',
+        matchedInterestedKeywords: ['可复用'],
+        matchedUninterestedKeywords: [],
+        protocolVersion: 'user-keywords-profile-v2',
         reason: '符合可复用、可验证和实际工程价值偏好。',
         score: 82,
       },
@@ -270,9 +318,54 @@ describe('RawEvidenceGenerator', () => {
       max_tokens?: number;
       messages?: Array<{ content?: string }>;
     };
-    expect(request.max_tokens).toBe(420);
+    expect(request.max_tokens).toBe(520);
     expect(request.messages?.[0]?.content).toContain(CONTENT.body);
-    expect(request.messages?.[0]?.content).toContain('preference_protocol');
+    expect(request.messages?.[0]?.content).toContain('preference_keywords');
+  });
+
+  it('applies only validated personal-profile signal weights without sending source records', async () => {
+    const http = new FixtureHTTPTransport([
+      chatRoute(
+        JSON.stringify({
+          category: 'Skill',
+          githubQueries: [],
+          matchedPreferenceSignalIds: ['reproducible-evidence'],
+          preview: '方法提供可重复执行的数据步骤，并保留可检查的验证边界。',
+          title: '可复现研究方法',
+        }),
+      ),
+    ]);
+    const result = await generator(http, PREFERENCE_PROFILE).generate(CONTENT, 'zh-CN');
+
+    expect(result.recommendation).toMatchObject({
+      matchedPreferenceSignals: ['可复现证据'],
+      profileVersion: 'profile-v1',
+      protocolVersion: 'user-keywords-profile-v2',
+      score: 94,
+    });
+    const body = http.calls[0]?.body ?? '';
+    expect(body).toContain('<preference_profile>');
+    expect(body).toContain('reproducible-evidence');
+    expect(body).not.toContain('Private fixture');
+  });
+
+  it('rejects personal-profile signal IDs that were not approved', async () => {
+    const invalid = JSON.stringify({
+      category: 'Project',
+      githubQueries: [],
+      matchedInterestedKeywords: ['可复用'],
+      matchedPreferenceSignalIds: ['invented-signal'],
+      matchedUninterestedKeywords: [],
+      preview: '提供一条足够长且不重复标题的工程实践筛选理由。',
+      recommendationReason: '内容声称命中了个人协议，但该信号没有获得批准。',
+      recommendationScore: 80,
+      title: '工程实践',
+    });
+    const http = new FixtureHTTPTransport([chatRoute(invalid, invalid)]);
+
+    await expect(
+      generator(http, PREFERENCE_PROFILE).generate(CONTENT, 'zh-CN'),
+    ).rejects.toMatchObject({ code: 'AI_OUTPUT_INVALID' });
   });
 
   it('accepts a concise one-sentence Chinese AI preview', async () => {
@@ -324,6 +417,27 @@ describe('RawEvidenceGenerator', () => {
       preview: '提供可验证的工程实践，并说明适用范围与限制条件。',
       recommendationReason: '与协议中的可验证工程偏好一致。',
       recommendationScore: 101,
+      matchedInterestedKeywords: ['可复用'],
+      matchedUninterestedKeywords: [],
+      title: '工程实践',
+    });
+    const http = new FixtureHTTPTransport([chatRoute(invalid, invalid)]);
+
+    await expect(generator(http).generate(CONTENT, 'zh-CN')).rejects.toMatchObject({
+      code: 'AI_OUTPUT_INVALID',
+    });
+    expect(http.calls).toHaveLength(2);
+  });
+
+  it('rejects keyword hits that were not configured by the user', async () => {
+    const invalid = JSON.stringify({
+      category: 'Project',
+      githubQueries: [],
+      matchedInterestedKeywords: ['模型声称的额外兴趣'],
+      matchedUninterestedKeywords: [],
+      preview: '提供一条足够长且不重复标题的工程实践筛选理由。',
+      recommendationReason: '内容具有工程价值，但命中了并不存在的用户关键词。',
+      recommendationScore: 80,
       title: '工程实践',
     });
     const http = new FixtureHTTPTransport([chatRoute(invalid, invalid)]);
@@ -376,6 +490,7 @@ describe('RawEvidenceGenerator', () => {
         baseURL: 'https://api.example.com/v1',
         connectionTest: null,
         model: 'fixture-model',
+        multimodal: false,
         preset: 'custom',
         secretName: 'Missing Secret',
       }),

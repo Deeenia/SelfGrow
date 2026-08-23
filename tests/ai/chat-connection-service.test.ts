@@ -21,6 +21,7 @@ function configuration(overrides: Partial<EndpointSettings> = {}): EndpointSetti
     baseURL: BASE_URL,
     connectionTest: null,
     model: MODEL,
+    multimodal: false,
     preset: 'custom',
     secretName: 'Fixture Chat Secret',
     ...overrides,

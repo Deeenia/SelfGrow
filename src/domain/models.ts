@@ -55,6 +55,10 @@ export interface CoreKnowledgeItem {
 }
 
 export interface PreferenceRecommendation {
+  matchedInterestedKeywords: readonly string[];
+  matchedPreferenceSignals?: readonly string[];
+  matchedUninterestedKeywords: readonly string[];
+  profileVersion?: string | null;
   protocolVersion: string;
   reason: string;
   score: number;

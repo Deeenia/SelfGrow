@@ -19,7 +19,9 @@ describe('CanonicalKnowledgeNoteCommitter', () => {
     expect(markdown).toMatch(/## My Notes\n\s*## Source/);
     expect(markdown).toContain('Grounded explanation.');
     expect(frontmatter).toMatchObject({
+      preference_profile_version: null,
       preference_protocol_version: null,
+      recommendation_preference_signals: null,
       recommendation_reason: null,
       recommendation_score: null,
       recognition_source: 'local',
@@ -62,6 +64,10 @@ describe('CanonicalKnowledgeNoteCommitter', () => {
       generated: {
         ...fixture.input.generated,
         recommendation: {
+          matchedInterestedKeywords: ['本地优先'],
+          matchedPreferenceSignals: ['可复现证据'],
+          matchedUninterestedKeywords: [],
+          profileVersion: 'profile-v1',
           protocolVersion: '2026-08-21',
           reason: '符合可复用、可验证和本地优先的工程偏好。',
           score: 88,
@@ -71,9 +77,13 @@ describe('CanonicalKnowledgeNoteCommitter', () => {
     });
 
     expect(await fixture.frontmatter.read(path)).toMatchObject({
+      preference_profile_version: 'profile-v1',
       preference_protocol_version: '2026-08-21',
+      recommendation_interested_keywords: ['本地优先'],
+      recommendation_preference_signals: ['可复现证据'],
       recommendation_reason: '符合可复用、可验证和本地优先的工程偏好。',
       recommendation_score: 88,
+      recommendation_uninterested_keywords: [],
       wiki_selected: false,
     });
   });

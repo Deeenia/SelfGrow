@@ -33,8 +33,14 @@ export class LinkSupplementExtractor implements ContentExtractor {
       request.url.normalized.startsWith('selfgrow:text:')
     ) {
       let preview;
+      let visualRecognition;
       try {
         preview = await this.#vision.preview(imagePaths, request.language);
+        visualRecognition = {
+          category: preview.category,
+          recommendation: preview.recommendation,
+          source: 'ai' as const,
+        };
       } catch {
         preview = {
           preview:
@@ -44,6 +50,11 @@ export class LinkSupplementExtractor implements ContentExtractor {
           title:
             request.suggestedTitle?.trim() ||
             (request.language === 'zh-CN' ? '图片记录' : 'Image capture'),
+        };
+        visualRecognition = {
+          category: 'Experience' as const,
+          recommendation: null,
+          source: 'local' as const,
         };
       }
       return {
@@ -55,6 +66,7 @@ export class LinkSupplementExtractor implements ContentExtractor {
           route: 'visual_preview',
           sourceLanguage: request.language,
           title: preview.title,
+          visualRecognition,
         },
         kind: 'complete',
       };

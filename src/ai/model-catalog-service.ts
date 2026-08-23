@@ -103,32 +103,6 @@ export class ModelCatalogService {
       ]),
     ).map((id) => ({ description: modelDescription(id, language), id }));
   }
-
-  /**
-   * Loads the provider's current remote catalog when a valid key is available.
-   * Missing or invalid keys fall back to a compact local catalog so switching
-   * providers or keys never blocks model selection.
-   */
-  async listWithFallback(language: Language): Promise<ModelCatalogEntry[]> {
-    const configuration = this.#dependencies.configuration();
-    const baseURL = configuration.baseURL.trim();
-    const local = baseURL.length === 0 ? [] : knownModelCatalog(baseURL, language);
-    if (configuration.secretName.trim().length === 0) return local;
-
-    const secret = this.#dependencies.secretResolver.get({
-      name: configuration.secretName,
-    });
-    if (secret === null || secret.trim().length === 0 || /[\r\n]/.test(secret)) {
-      return local;
-    }
-
-    try {
-      return await this.list(language);
-    } catch (error) {
-      if (isModelCatalogFallbackError(error)) return local;
-      throw error;
-    }
-  }
 }
 
 function filterProviderModelIDs(
@@ -226,17 +200,6 @@ function providerFamily(baseURL: string): ModelProviderFamily {
     return 'kimi';
   }
   return 'custom';
-}
-
-function isModelCatalogFallbackError(error: unknown): boolean {
-  if (!(error instanceof SelfGrowError)) return false;
-  return (
-    error.code === 'SECRET_NOT_FOUND' ||
-    error.code === 'AI_AUTHENTICATION_FAILED' ||
-    error.code === 'AI_CONNECTION_TEST_FAILED' ||
-    error.code === 'AI_PROTOCOL_UNSUPPORTED' ||
-    error.code === 'NETWORK_UNAVAILABLE'
-  );
 }
 
 type LocalizedText = { en: string; 'zh-CN': string };

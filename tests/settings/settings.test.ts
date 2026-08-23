@@ -12,6 +12,7 @@ import {
   loadSettings,
   markConnectionTested,
   markExtractionTested,
+  preferenceKeywordsReady,
   rememberChatSecretProfile,
   serializeSettings,
   updateChat,
@@ -28,6 +29,7 @@ function endpoint(overrides: Partial<EndpointSettings> = {}): EndpointSettings {
     baseURL: 'https://api.example.test/v1',
     connectionTest: null,
     model: 'fixture-model',
+    multimodal: false,
     preset: 'custom',
     secretName: 'Shared Fixture Secret',
     ...overrides,
@@ -52,12 +54,15 @@ describe('settings', () => {
         baseURL: '',
         connectionTest: null,
         model: '',
+        multimodal: false,
         preset: 'unconfigured',
         secretName: '',
       },
       chatSecretProfiles: {},
       extraction: null,
       language: 'zh-CN',
+      preferenceKeywords: { interested: [], uninterested: [] },
+      preferenceProfileEnabled: true,
       rootPath: 'Raw',
       schemaVersion: 1,
     });
@@ -122,14 +127,39 @@ describe('settings', () => {
   });
 
   it('persists references but never secret values', () => {
-    const settings = { ...createDefaultSettings(), chat: endpoint() };
+    const settings = {
+      ...createDefaultSettings(),
+      chat: endpoint(),
+      preferenceKeywords: {
+        interested: ['本地优先', '多模态'],
+        uninterested: ['营销炒作'],
+      },
+    };
     const json = JSON.stringify(serializeSettings(settings));
     expect(json).toContain('Shared Fixture Secret');
+    expect(json).toContain('本地优先');
     expect(json).not.toContain(OBVIOUSLY_FAKE_SECRET);
     const resolver = new ObsidianSecretResolver({
       getSecret: (name) => (name === 'Shared Fixture Secret' ? OBVIOUSLY_FAKE_SECRET : null),
     });
     expect(resolver.get({ name: settings.chat.secretName })).toBe(OBVIOUSLY_FAKE_SECRET);
+  });
+
+  it('migrates legacy settings and requires both keyword groups before scoring', () => {
+    const current = createDefaultSettings();
+    const {
+      preferenceKeywords: _keywords,
+      preferenceProfileEnabled: _profileEnabled,
+      ...legacy
+    } = current;
+    const { multimodal: _multimodal, ...legacyChat } = legacy.chat;
+    const loaded = loadSettings({ ...legacy, chat: legacyChat });
+
+    expect(loaded.chat.multimodal).toBe(false);
+    expect(loaded.preferenceKeywords).toEqual({ interested: [], uninterested: [] });
+    expect(loaded.preferenceProfileEnabled).toBe(true);
+    expect(preferenceKeywordsReady(loaded.preferenceKeywords)).toBe(false);
+    expect(preferenceKeywordsReady({ interested: ['RAG'], uninterested: ['营销炒作'] })).toBe(true);
   });
 
   it('remembers and restores provider profiles per SecretStorage key', () => {
@@ -141,6 +171,7 @@ describe('settings', () => {
           baseURL: 'https://api.moonshot.cn/v1',
           connectionTest: null,
           model: 'kimi-k3',
+          multimodal: true,
           preset: 'kimi',
           secretName: 'kimi-key',
         },
@@ -153,6 +184,7 @@ describe('settings', () => {
         baseURL: 'https://api.deepseek.com',
         connectionTest: null,
         model: 'deepseek-v4-flash',
+        multimodal: false,
         preset: 'deepseek',
         secretName: 'deepseek-key',
       },

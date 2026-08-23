@@ -1,4 +1,10 @@
-import type { Language, Platform, SelfGrowID } from '../domain';
+import type {
+  Language,
+  Platform,
+  PreferenceRecommendation,
+  RawCategory,
+  SelfGrowID,
+} from '../domain';
 import type { NormalizedURL } from '../url';
 
 export type ExtractionRoute =
@@ -36,6 +42,11 @@ export interface ExtractedContent {
   route: ExtractionRoute;
   sourceLanguage?: string;
   title?: string;
+  visualRecognition?: {
+    category: RawCategory;
+    recommendation: PreferenceRecommendation | null;
+    source: 'ai' | 'local';
+  };
 }
 
 export type ExtractionOutcome =

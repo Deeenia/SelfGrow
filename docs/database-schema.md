@@ -81,6 +81,13 @@ distilled_at: null
 wiki_targets: [] # portable sibling-Wiki paths such as Wiki/Concepts/RAG.md
 distillation_error: null
 recognition_source: "ai | local" # whether the recognition card came from AI or local fallback
+preference_protocol_version: "user-keywords-profile-v2 | null"
+preference_profile_version: "profile version | null" # Vault-local approved profile used for this card
+recommendation_score: 0-100 | null
+recommendation_reason: "one sentence | null"
+recommendation_interested_keywords: []   # exact configured keywords matched by this capture
+recommendation_uninterested_keywords: [] # exact configured keywords matched by this capture
+recommendation_preference_signals: []     # approved profile signal labels matched by this capture
 source_github_owner: "acme"       # GitHub sources only
 source_github_repo: "tool"        # GitHub sources only
 github_readme_path: "README.md"   # GitHub sources only: chosen README for diagnosis
@@ -108,7 +115,7 @@ github_readme_language: "zh-CN | en | null"
 [打开原文](https://example.com/article)
 ```
 
-Image Raw cards embed retained files from `SelfGrow/Attachments/`. They may use a one-sentence visual preview; text/link cards do not call Chat for summarization.
+Image Raw cards embed retained files from `SelfGrow/Attachments/`. When the selected model is known or explicitly marked as multimodal, a pure-image capture uses one bounded visual request for category, title, one-sentence preview, and optional keyword recommendation metadata. Unsupported or failed visual requests retain the image with an honest local fallback. Text/link cards do not call Chat for full-body summarization.
 
 ## 5. Raw Selection Schema
 

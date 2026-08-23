@@ -1027,12 +1027,198 @@ def apply_project_summary(
         "workspace_link_removed": True,
     }
 
+
+PROFILE_KEYS = {
+    "schemaVersion",
+    "profileVersion",
+    "updatedAt",
+    "positiveSignals",
+    "negativeSignals",
+    "sources",
+}
+PROFILE_SIGNAL_KEYS = {"id", "label", "description", "weight"}
+PROFILE_SOURCE_KEYS = {"project", "summaryHash"}
+PROFILE_SIGNAL_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+PROFILE_SUMMARY_HASH = re.compile(r"^[a-f0-9]{64}$")
+
+
+def preference_profile_path(root: Path) -> Path:
+    root = root.resolve()
+    if root.parent == root:
+        raise SkillError("SelfGrow root cannot be a filesystem root.")
+    return root.parent / "Preferences" / "preference-profile.json"
+
+
+def checked_profile_text(value: Any, field: str, limit: int) -> str:
+    if not isinstance(value, str) or not value.strip() or len(value) > limit:
+        raise SkillError(f"Preference profile field {field} is invalid.")
+    return value
+
+
+def validate_preference_signal(value: Any, polarity: str) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != PROFILE_SIGNAL_KEYS:
+        raise SkillError("Preference profile signals must use the exact signal schema.")
+    signal_id = checked_profile_text(value.get("id"), "signal.id", 64)
+    if PROFILE_SIGNAL_ID.fullmatch(signal_id) is None:
+        raise SkillError("Preference signal IDs must be lowercase kebab-case.")
+    label = checked_profile_text(value.get("label"), "signal.label", 40)
+    description = checked_profile_text(value.get("description"), "signal.description", 240)
+    weight = value.get("weight")
+    valid_weight = (
+        isinstance(weight, int)
+        and not isinstance(weight, bool)
+        and ((polarity == "positive" and 1 <= weight <= 20) or (polarity == "negative" and -20 <= weight <= -1))
+    )
+    if not valid_weight:
+        raise SkillError("Preference signal weight does not match its polarity.")
+    return {"id": signal_id, "label": label, "description": description, "weight": weight}
+
+
+def validate_preference_profile_value(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != PROFILE_KEYS:
+        raise SkillError("Preference profile must use the exact top-level schema.")
+    if value.get("schemaVersion") != 1:
+        raise SkillError("Preference profile schemaVersion must be 1.")
+    profile_version = checked_profile_text(value.get("profileVersion"), "profileVersion", 64)
+    updated_at = checked_profile_text(value.get("updatedAt"), "updatedAt", 64)
+    try:
+        datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise SkillError("Preference profile updatedAt must be an ISO timestamp.") from error
+    positive = value.get("positiveSignals")
+    negative = value.get("negativeSignals")
+    sources = value.get("sources")
+    if not isinstance(positive, list) or len(positive) > 20:
+        raise SkillError("Preference profile supports at most 20 positive signals.")
+    if not isinstance(negative, list) or len(negative) > 20:
+        raise SkillError("Preference profile supports at most 20 negative signals.")
+    if not isinstance(sources, list) or len(sources) > 30:
+        raise SkillError("Preference profile supports at most 30 source summaries.")
+    checked_positive = [validate_preference_signal(item, "positive") for item in positive]
+    checked_negative = [validate_preference_signal(item, "negative") for item in negative]
+    ids = [item["id"] for item in [*checked_positive, *checked_negative]]
+    if len(ids) != len(set(ids)):
+        raise SkillError("Preference signal IDs must be unique.")
+    checked_sources: list[dict[str, str]] = []
+    for source in sources:
+        if not isinstance(source, dict) or set(source) != PROFILE_SOURCE_KEYS:
+            raise SkillError("Preference profile sources must use the exact source schema.")
+        project = checked_profile_text(source.get("project"), "source.project", 120)
+        summary_hash = source.get("summaryHash")
+        if not isinstance(summary_hash, str) or PROFILE_SUMMARY_HASH.fullmatch(summary_hash) is None:
+            raise SkillError("Preference source summaryHash must be a lowercase SHA-256 value.")
+        checked_sources.append({"project": project, "summaryHash": summary_hash})
+    return {
+        "schemaVersion": 1,
+        "profileVersion": profile_version,
+        "updatedAt": updated_at,
+        "positiveSignals": checked_positive,
+        "negativeSignals": checked_negative,
+        "sources": checked_sources,
+    }
+
+
+def preference_profile_status(root: Path) -> dict[str, Any]:
+    target = preference_profile_path(root)
+    if not target.exists():
+        return {"path": str(target), "state": "missing", "writes_performed": False}
+    if not target.is_file():
+        return {"path": str(target), "state": "invalid", "writes_performed": False}
+    try:
+        profile = validate_preference_profile_value(json.loads(target.read_text(encoding="utf-8")))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, SkillError):
+        return {"path": str(target), "state": "invalid", "writes_performed": False}
+    return {
+        "path": str(target),
+        "profile_version": profile["profileVersion"],
+        "state": "ready",
+        "updated_at": profile["updatedAt"],
+        "writes_performed": False,
+    }
+
+
+def validate_preference_profile(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
+    profile = validate_preference_profile_value(plan)
+    current = preference_profile_status(root)
+    if current.get("profile_version") == profile["profileVersion"]:
+        raise SkillError("An updated preference profile must use a new profileVersion.")
+    return {
+        "current": current,
+        "path": str(preference_profile_path(root)),
+        "profile": profile,
+        "writes_performed": False,
+    }
+
+
+def apply_preference_profile(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
+    preview = validate_preference_profile(root, plan)
+    target = preference_profile_path(root)
+    before = target.read_bytes() if target.is_file() else None
+    created_parent = not target.parent.exists()
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        content = json.dumps(preview["profile"], ensure_ascii=False, indent=2) + "\n"
+        atomic_write(target, content.encode("utf-8"))
+    except Exception as error:
+        if before is not None:
+            atomic_write(target, before)
+        elif target.exists():
+            target.unlink()
+        if created_parent and target.parent.exists() and not any(target.parent.iterdir()):
+            target.parent.rmdir()
+        raise SkillError("Preference-profile write failed and was rolled back.") from error
+    return {
+        "path": str(target),
+        "profile_version": preview["profile"]["profileVersion"],
+        "positive_signal_count": len(preview["profile"]["positiveSignals"]),
+        "negative_signal_count": len(preview["profile"]["negativeSignals"]),
+        "source_count": len(preview["profile"]["sources"]),
+        "writes_performed": True,
+    }
+
 def self_test() -> None:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory) / "SelfGrow"
         initialized = initialize_repository(root)
         assert initialized["writes_performed"] is True
         assert initialize_repository(root)["writes_performed"] is False
+        profile_plan = {
+            "schemaVersion": 1,
+            "profileVersion": "self-test-v1",
+            "updatedAt": "2026-08-23T14:00:00Z",
+            "positiveSignals": [
+                {
+                    "id": "reproducible-evidence",
+                    "label": "可复现证据",
+                    "description": "包含可复现的数据、代码或方法步骤。",
+                    "weight": 12,
+                }
+            ],
+            "negativeSignals": [
+                {
+                    "id": "unsupported-claims",
+                    "label": "缺少证据",
+                    "description": "结论缺少可检查的来源、数据或推理。",
+                    "weight": -10,
+                }
+            ],
+            "sources": [{"project": "Fixture", "summaryHash": "a" * 64}],
+        }
+        profile_preview = validate_preference_profile(root, profile_plan)
+        assert profile_preview["writes_performed"] is False
+        assert preference_profile_status(root)["state"] == "missing"
+        profile_applied = apply_preference_profile(root, profile_plan)
+        assert profile_applied["profile_version"] == "self-test-v1"
+        assert preference_profile_status(root)["state"] == "ready"
+        invalid_profile = {**profile_plan, "profileVersion": "self-test-v2"}
+        invalid_profile["positiveSignals"] = [
+            {**profile_plan["positiveSignals"][0], "id": "Invalid ID"}
+        ]
+        try:
+            validate_preference_profile(root, invalid_profile)
+            raise AssertionError("Invalid preference signal ID should fail validation.")
+        except SkillError:
+            pass
         blocked_root = Path(directory) / "blocked" / "Raw"
         blocked_index = blocked_root.parent / "Wiki" / "Index.md"
         blocked_index.mkdir(parents=True)
@@ -1335,6 +1521,14 @@ def parser() -> argparse.ArgumentParser:
         if name in {"init", "apply", "clean"}:
             command.add_argument("--approved", action="store_true")
     commands.add_parser("bootstrap").add_argument("--selfgrow-root", required=True, type=Path)
+    profile_status = commands.add_parser("preference-profile-status")
+    profile_status.add_argument("--selfgrow-root", required=True, type=Path)
+    for name in ["validate-preference-profile", "apply-preference-profile"]:
+        command = commands.add_parser(name)
+        command.add_argument("--selfgrow-root", required=True, type=Path)
+        command.add_argument("--plan", required=True, type=Path)
+        if name == "apply-preference-profile":
+            command.add_argument("--approved", action="store_true")
     link = commands.add_parser("link-project")
     link.add_argument("--selfgrow-root", required=True, type=Path)
     link.add_argument("--workspace-root", required=True, type=Path)
@@ -1382,6 +1576,14 @@ def main() -> int:
             )
         elif arguments.command == "project-status":
             result = project_link_status(arguments.workspace_root, state_path)
+        elif arguments.command == "preference-profile-status":
+            result = preference_profile_status(arguments.selfgrow_root)
+        elif arguments.command == "validate-preference-profile":
+            result = validate_preference_profile(arguments.selfgrow_root, load_plan(arguments.plan))
+        elif arguments.command == "apply-preference-profile":
+            if not arguments.approved:
+                raise SkillError("Preference-profile write requires explicit --approved.")
+            result = apply_preference_profile(arguments.selfgrow_root, load_plan(arguments.plan))
         elif arguments.command == "validate-project-summary":
             result = validate_project_summary(
                 arguments.selfgrow_root,

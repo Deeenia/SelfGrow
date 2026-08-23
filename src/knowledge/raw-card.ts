@@ -61,8 +61,24 @@ const rawV2Schema = identitySchema.extend({
     .regex(/^[a-f0-9]{64}$/)
     .nullable(),
   preference_protocol_version: z.string().min(1).nullable().optional(),
+  preference_profile_version: z.string().min(1).nullable().optional(),
+  recommendation_interested_keywords: z
+    .array(z.string().min(1).max(40))
+    .max(30)
+    .nullable()
+    .optional(),
   recommendation_reason: z.string().min(1).nullable().optional(),
+  recommendation_preference_signals: z
+    .array(z.string().min(1).max(40))
+    .max(40)
+    .nullable()
+    .optional(),
   recommendation_score: z.number().int().min(0).max(100).nullable().optional(),
+  recommendation_uninterested_keywords: z
+    .array(z.string().min(1).max(40))
+    .max(30)
+    .nullable()
+    .optional(),
   selfgrow_layer: z.literal('raw'),
   selfgrow_schema: z.literal(2),
   wiki_selected: z.boolean(),
@@ -446,7 +462,28 @@ function readRecommendation(frontmatter: Frontmatter): PreferenceRecommendation 
   ) {
     return null;
   }
-  return { protocolVersion: version, reason, score };
+  return {
+    matchedInterestedKeywords: readKeywordMatches(frontmatter.recommendation_interested_keywords),
+    matchedPreferenceSignals: readKeywordMatches(frontmatter.recommendation_preference_signals),
+    matchedUninterestedKeywords: readKeywordMatches(
+      frontmatter.recommendation_uninterested_keywords,
+    ),
+    profileVersion:
+      typeof frontmatter.preference_profile_version === 'string'
+        ? frontmatter.preference_profile_version
+        : null,
+    protocolVersion: version,
+    reason,
+    score,
+  };
+}
+
+function readKeywordMatches(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (keyword): keyword is string =>
+      typeof keyword === 'string' && keyword.length > 0 && keyword.length <= 40,
+  );
 }
 
 function invalidRaw(issueCount?: number): SelfGrowError {

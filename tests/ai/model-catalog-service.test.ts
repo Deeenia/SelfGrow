@@ -13,6 +13,7 @@ function configuration(overrides: Partial<EndpointSettings> = {}): EndpointSetti
     baseURL: 'https://api.example.com/v1',
     connectionTest: null,
     model: '',
+    multimodal: false,
     preset: 'openai',
     secretName: 'chat',
     ...overrides,
@@ -102,24 +103,6 @@ describe('ModelCatalogService', () => {
     );
   });
 
-  it('provides a local provider catalog without requiring an API key', async () => {
-    const service = new ModelCatalogService({
-      configuration: () => configuration({ baseURL: 'https://api.moonshot.cn/v1' }),
-      http: new FixtureHTTPTransport([]),
-      secretResolver: new FakeSecretResolver({}),
-    });
-
-    const models = await service.listWithFallback('zh-CN');
-
-    expect(models.map((model) => model.id)).toEqual([
-      'kimi-k3',
-      'kimi-k2.7-code',
-      'kimi-k2.7-code-highspeed',
-      'kimi-k2.6',
-    ]);
-    expect(models.find((model) => model.id === 'kimi-k3')?.description).toContain('推荐');
-  });
-
   it('uses compact current catalogs for DeepSeek and Qwen', () => {
     expect(knownModelCatalog('https://api.deepseek.com', 'zh-CN').map((model) => model.id)).toEqual(
       ['deepseek-v4-flash', 'deepseek-v4-pro'],
@@ -129,27 +112,6 @@ describe('ModelCatalogService', () => {
         (model) => model.id,
       ),
     ).toEqual(['qwen3.8-max', 'qwen3.7-plus', 'qwen3.7-flash']);
-  });
-
-  it('falls back to local models when the remote list fails authentication', async () => {
-    const service = new ModelCatalogService({
-      configuration: () => configuration({ baseURL: 'https://api.moonshot.cn/v1' }),
-      http: new FixtureHTTPTransport([
-        {
-          method: 'GET',
-          outcome: {
-            kind: 'response',
-            response: { body: '{}', headers: {}, status: 401 },
-          },
-          url: 'https://api.moonshot.cn/v1/models',
-        },
-      ]),
-      secretResolver: new FakeSecretResolver({ chat: OBVIOUSLY_FAKE_SECRET }),
-    });
-
-    const models = await service.listWithFallback('zh-CN');
-
-    expect(models.map((model) => model.id)).toContain('kimi-k3');
   });
 
   it('reports known multimodal models', () => {

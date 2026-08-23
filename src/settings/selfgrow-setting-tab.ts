@@ -1,24 +1,30 @@
 import {
+  Modal,
   Notice,
   Plugin,
   PluginSettingTab,
   SecretComponent,
   Setting,
+  setIcon,
   type App,
   type SettingDefinitionItem,
 } from 'obsidian';
 import { isSelfGrowError, type Language } from '../domain';
-import type { ModelCatalogEntry } from '../ai';
+import { isKnownMultimodalModel, type ModelCatalogEntry } from '../ai';
 import {
   changeChatSecret,
   chatModelLoadConfigurationReady,
+  type PreferenceKeywordSettings,
   type SelfGrowSettings,
 } from './settings';
+import type { PreferenceProfileStatus } from './preference-profile';
 
 export interface SelfGrowSettingsHost extends Plugin {
   ensureRawFolder(path: string): Promise<void>;
   getSelfGrowSettings(): SelfGrowSettings;
+  getPreferenceProfileStatus(): Promise<PreferenceProfileStatus>;
   listChatModels(): Promise<ModelCatalogEntry[]>;
+  openPreferenceProfile(): Promise<void>;
   testChatConnection(): Promise<void>;
   testExtractionConnection(): Promise<void>;
   updateSelfGrowSettings(update: (current: SelfGrowSettings) => SelfGrowSettings): Promise<void>;
@@ -39,10 +45,29 @@ const COPY = {
     modelLoad: 'Load models',
     modelLoadNoConfig: 'Select a model provider and enter an API key before loading models.',
     modelLoadNoURL: 'Fill in the service URL before loading models.',
+    modelMultimodal: 'Image understanding',
+    modelMultimodalDescription:
+      'Known vision models are enabled automatically. For a custom model, enable this only when its provider accepts image input.',
     manualModel: 'Enter another model manually…',
     modelRefresh: 'Refresh models',
     modelsLoaded: (count: number) => `Loaded ${count} models.`,
     modelProvider: 'Model provider',
+    preferenceDescription:
+      'Pick preset topics with one tap. Custom keywords are available only when needed.',
+    preferenceHeading: 'Recommendation preferences',
+    preferenceOpen: 'Choose preferences',
+    preferenceReady: (interested: number, uninterested: number) =>
+      `${interested} interested · ${uninterested} not interested`,
+    preferenceRequired: 'Choose at least one item in each group to enable recommendation scores.',
+    preferenceProfile: 'Deep preference profile',
+    preferenceProfileDescription: (status: PreferenceProfileStatus) =>
+      status.state === 'ready'
+        ? `Profile ${status.profileVersion} · ${status.path}`
+        : status.state === 'invalid'
+          ? `The profile is invalid and will be ignored: ${status.path}`
+          : `No profile yet. The SelfGrow agent Skill can create it at ${status.path}. Keyword scoring remains active.`,
+    preferenceProfileLoading: 'Checking the Vault preference profile…',
+    preferenceProfileOpen: 'View profile',
     selectProvider: 'Select a model provider',
     selectModel: 'Select a model',
     unlistedModel: 'Unlisted model',
@@ -73,10 +98,28 @@ const COPY = {
     modelLoad: '加载模型',
     modelLoadNoConfig: '请选择模型服务商，填入API密钥后再加载模型',
     modelLoadNoURL: '请先填写服务地址，再加载模型。',
+    modelMultimodal: '图片理解',
+    modelMultimodalDescription:
+      '已知视觉模型会自动启用；自定义模型仅在服务商确认支持图片输入时手动开启。',
     manualModel: '手动输入其他模型…',
     modelRefresh: '刷新模型',
     modelsLoaded: (count: number) => `已加载 ${count} 个模型。`,
     modelProvider: '模型服务商',
+    preferenceDescription: '点击预设主题即可选择，只有需要时才手动添加自定义关键词。',
+    preferenceHeading: '推荐偏好',
+    preferenceOpen: '选择推荐偏好',
+    preferenceReady: (interested: number, uninterested: number) =>
+      `感兴趣 ${interested} 项 · 不感兴趣 ${uninterested} 项`,
+    preferenceRequired: '请至少在两组中各选择一项，之后才会生成推荐度。',
+    preferenceProfile: '深层偏好协议',
+    preferenceProfileDescription: (status: PreferenceProfileStatus) =>
+      status.state === 'ready'
+        ? `已读取版本 ${status.profileVersion} · ${status.path}`
+        : status.state === 'invalid'
+          ? `协议格式无效，当前会忽略：${status.path}`
+          : `尚未生成；SelfGrow Agent Skill 可审核后写入 ${status.path}，关键词评分仍会正常工作。`,
+    preferenceProfileLoading: '正在检查 Vault 内的偏好协议…',
+    preferenceProfileOpen: '查看协议',
     selectProvider: '请选择模型服务商',
     selectModel: '请选择模型',
     unlistedModel: '未收录模型',
@@ -151,8 +194,68 @@ export class SelfGrowSettingTab extends PluginSettingTab {
         }),
     );
 
+    this.#preferences();
+
     this.#endpoint(copy.chat, 'chat');
     this.#extraction();
+  }
+
+  #preferences(): void {
+    const settings = this.#host.getSelfGrowSettings();
+    const copy = COPY[settings.language];
+    new Setting(this.#container())
+      .setName(copy.preferenceHeading)
+      .setDesc(copy.preferenceDescription)
+      .setHeading();
+    const ready =
+      settings.preferenceKeywords.interested.length > 0 &&
+      settings.preferenceKeywords.uninterested.length > 0;
+    new Setting(this.#container())
+      .setName(copy.preferenceOpen)
+      .setDesc(
+        ready
+          ? copy.preferenceReady(
+              settings.preferenceKeywords.interested.length,
+              settings.preferenceKeywords.uninterested.length,
+            )
+          : copy.preferenceRequired,
+      )
+      .addButton((button) =>
+        button.setButtonText(copy.preferenceOpen).onClick(() => {
+          new PreferenceKeywordModal(
+            this.app,
+            settings.language,
+            settings.preferenceKeywords,
+            async (keywords) => {
+              await this.#update((current) => ({
+                ...current,
+                preferenceKeywords: keywords,
+              }));
+              this.update();
+            },
+          ).open();
+        }),
+      );
+
+    const profile = new Setting(this.#container())
+      .setName(copy.preferenceProfile)
+      .setDesc(copy.preferenceProfileLoading)
+      .addToggle((toggle) =>
+        toggle.setValue(settings.preferenceProfileEnabled).onChange((value) => {
+          void this.#update((current) => ({
+            ...current,
+            preferenceProfileEnabled: value,
+          })).then(() => this.update());
+        }),
+      )
+      .addButton((button) =>
+        button.setButtonText(copy.preferenceProfileOpen).onClick(() => {
+          void this.#host.openPreferenceProfile();
+        }),
+      );
+    void this.#host.getPreferenceProfileStatus().then((status) => {
+      if (profile.settingEl.isConnected) profile.setDesc(copy.preferenceProfileDescription(status));
+    });
   }
 
   #endpoint(name: string, key: 'chat'): void {
@@ -174,7 +277,11 @@ export class SelfGrowSettingTab extends PluginSettingTab {
         .setValue(endpoint.preset)
         .onChange((value) => {
           if (!isEndpointPreset(value)) return;
-          void this.#updateEndpoint(key, { ...endpointPresetPatch(value), model: '' }).then(() => {
+          void this.#updateEndpoint(key, {
+            ...endpointPresetPatch(value),
+            model: '',
+            multimodal: false,
+          }).then(() => {
             this.#chatModels = [];
             this.#chatModelsSignature = '';
             this.update();
@@ -191,6 +298,14 @@ export class SelfGrowSettingTab extends PluginSettingTab {
       }),
     );
     this.#renderModelSetting(copy, key, endpoint);
+    new Setting(this.#container())
+      .setName(copy.modelMultimodal)
+      .setDesc(copy.modelMultimodalDescription)
+      .addToggle((toggle) =>
+        toggle.setValue(endpoint.multimodal).onChange((value) => {
+          void this.#updateEndpoint(key, { multimodal: value });
+        }),
+      );
     new Setting(this.#container()).setName(copy.test).addButton((button) =>
       button.setButtonText(copy.test).onClick(() => {
         void this.#test(() => this.#host.testChatConnection());
@@ -236,7 +351,11 @@ export class SelfGrowSettingTab extends PluginSettingTab {
     if (models.length === 0) {
       setting.addText((component) =>
         component.setValue(endpoint.model).onChange((value) => {
-          void this.#updateEndpoint(key, { model: value.trim() });
+          const model = value.trim();
+          void this.#updateEndpoint(key, {
+            model,
+            multimodal: isKnownMultimodalModel(model),
+          });
         }),
       );
     } else {
@@ -257,7 +376,10 @@ export class SelfGrowSettingTab extends PluginSettingTab {
             return;
           }
           if (value.length === 0) return;
-          void this.#updateEndpoint(key, { model: value });
+          void this.#updateEndpoint(key, {
+            model: value,
+            multimodal: isKnownMultimodalModel(value),
+          }).then(() => this.update());
         });
       });
     }
@@ -437,4 +559,367 @@ function endpointPresetPatch(
     qwen: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
   } as const;
   return { baseURL: baseURLs[preset], preset };
+}
+
+interface KeywordPreset {
+  en: string;
+  'zh-CN': string;
+}
+
+type PreferenceGroup = keyof PreferenceKeywordSettings;
+
+const PRESET_BATCH_SIZE = 12;
+
+const TOPIC_PRESETS: readonly KeywordPreset[] = [
+  { en: 'Academic reading', 'zh-CN': '学术阅读' },
+  { en: 'Academic writing', 'zh-CN': '学术写作' },
+  { en: 'Literature review', 'zh-CN': '文献综述' },
+  { en: 'Note-taking methods', 'zh-CN': '笔记方法' },
+  { en: 'Knowledge management', 'zh-CN': '知识管理' },
+  { en: 'Critical thinking', 'zh-CN': '批判性思维' },
+  { en: 'Problem solving', 'zh-CN': '问题解决' },
+  { en: 'Exam preparation', 'zh-CN': '考试备考' },
+  { en: 'Time management', 'zh-CN': '时间管理' },
+  { en: 'Language learning', 'zh-CN': '语言学习' },
+  { en: 'Academic presentations', 'zh-CN': '学术汇报' },
+  { en: 'Research collaboration', 'zh-CN': '科研协作' },
+  { en: 'Research methods', 'zh-CN': '研究方法' },
+  { en: 'Experimental design', 'zh-CN': '实验设计' },
+  { en: 'Statistics', 'zh-CN': '统计学' },
+  { en: 'Causal inference', 'zh-CN': '因果推断' },
+  { en: 'Survey research', 'zh-CN': '调查研究' },
+  { en: 'Qualitative research', 'zh-CN': '定性研究' },
+  { en: 'Data analysis', 'zh-CN': '数据分析' },
+  { en: 'Data visualization', 'zh-CN': '数据可视化' },
+  { en: 'Reproducible research', 'zh-CN': '可复现研究' },
+  { en: 'Reference management', 'zh-CN': '文献管理' },
+  { en: 'Open science', 'zh-CN': '开放科学' },
+  { en: 'Research project design', 'zh-CN': '科研项目设计' },
+  { en: 'Artificial intelligence', 'zh-CN': '人工智能' },
+  { en: 'AI agents', 'zh-CN': '智能体' },
+  { en: 'RAG', 'zh-CN': 'RAG' },
+  { en: 'Multimodal AI', 'zh-CN': '多模态' },
+  { en: 'Programming', 'zh-CN': '编程开发' },
+  { en: 'Python', 'zh-CN': 'Python' },
+  { en: 'R', 'zh-CN': 'R语言' },
+  { en: 'GIS', 'zh-CN': 'GIS' },
+  { en: 'Databases', 'zh-CN': '数据库' },
+  { en: 'Automation', 'zh-CN': '自动化' },
+  { en: 'Open source', 'zh-CN': '开源项目' },
+  { en: 'Software engineering', 'zh-CN': '软件工程' },
+  { en: 'Research tools', 'zh-CN': '科研工具' },
+  { en: 'Mathematics', 'zh-CN': '数学' },
+  { en: 'Computer science', 'zh-CN': '计算机科学' },
+  { en: 'Physics', 'zh-CN': '物理学' },
+  { en: 'Chemistry', 'zh-CN': '化学' },
+  { en: 'Biology', 'zh-CN': '生物学' },
+  { en: 'Earth science', 'zh-CN': '地球科学' },
+  { en: 'Environmental science', 'zh-CN': '环境科学' },
+  { en: 'Medicine', 'zh-CN': '医学' },
+  { en: 'Psychology', 'zh-CN': '心理学' },
+  { en: 'Economics', 'zh-CN': '经济学' },
+  { en: 'Sociology', 'zh-CN': '社会学' },
+  { en: 'History', 'zh-CN': '历史学' },
+  { en: 'Philosophy', 'zh-CN': '哲学' },
+  { en: 'Law', 'zh-CN': '法学' },
+  { en: 'Linguistics', 'zh-CN': '语言学' },
+  { en: 'Literature', 'zh-CN': '文学' },
+  { en: 'Education', 'zh-CN': '教育' },
+  { en: 'Management', 'zh-CN': '管理学' },
+];
+
+const PREFERENCE_MODAL_COPY = {
+  en: {
+    add: 'Add',
+    addCustom: 'Add a custom keyword',
+    cancel: 'Cancel',
+    customPlaceholder: 'Type one keyword',
+    interested: 'What are you interested in?',
+    interestedHint: 'Pick the topics you want to see more often.',
+    keywordLimit: 'Each group supports up to 30 keywords.',
+    needBoth: 'Choose at least one keyword in each group.',
+    refresh: 'New batch',
+    save: 'Save preferences',
+    saveFailed: 'Could not save preferences. Please try again.',
+    subtitle:
+      'Both groups use the same neutral topics. Your choices decide what is ranked up or down.',
+    title: 'Choose recommendation preferences',
+    uninterested: 'What are you not interested in?',
+    uninterestedHint: 'Pick the topics you want to see less often.',
+  },
+  'zh-CN': {
+    add: '添加',
+    addCustom: '添加自定义关键词',
+    cancel: '取消',
+    customPlaceholder: '输入一个关键词',
+    interested: '你对什么感兴趣？',
+    interestedHint: '点击你希望更多看到的主题。',
+    keywordLimit: '每组最多保留 30 个关键词。',
+    needBoth: '请在两组中至少各选择一个关键词。',
+    refresh: '换一批',
+    save: '保存偏好',
+    saveFailed: '偏好保存失败，请重试。',
+    subtitle: '两栏使用同一套中性主题；由你的选择决定提高或降低推荐度。',
+    title: '选择推荐偏好',
+    uninterested: '你对什么不感兴趣？',
+    uninterestedHint: '点击你希望减少看到的主题。',
+  },
+} as const;
+
+class PreferenceKeywordModal extends Modal {
+  readonly #language: Language;
+  readonly #onSave: (keywords: PreferenceKeywordSettings) => Promise<void>;
+  readonly #selected: PreferenceKeywordSettings;
+  #batchStarts: Record<PreferenceGroup, number> = {
+    interested: 0,
+    uninterested: PRESET_BATCH_SIZE,
+  };
+  #showCustom: Record<PreferenceGroup, boolean> = {
+    interested: false,
+    uninterested: false,
+  };
+
+  constructor(
+    app: App,
+    language: Language,
+    initial: PreferenceKeywordSettings,
+    onSave: (keywords: PreferenceKeywordSettings) => Promise<void>,
+  ) {
+    super(app);
+    this.#language = language;
+    this.#selected = {
+      interested: [...initial.interested],
+      uninterested: [...initial.uninterested],
+    };
+    this.#onSave = onSave;
+  }
+
+  override onOpen(): void {
+    this.modalEl.addClass('selfgrow-preference-modal');
+    this.#render();
+  }
+
+  override onClose(): void {
+    this.contentEl.empty();
+  }
+
+  #render(): void {
+    const copy = PREFERENCE_MODAL_COPY[this.#language];
+    this.contentEl.empty();
+    this.contentEl.createEl('h2', { text: copy.title });
+    this.contentEl.createEl('p', {
+      cls: 'selfgrow-preference-subtitle',
+      text: copy.subtitle,
+    });
+    this.#renderGroup('interested', TOPIC_PRESETS, copy.interested, copy.interestedHint);
+    this.#renderGroup('uninterested', TOPIC_PRESETS, copy.uninterested, copy.uninterestedHint);
+
+    const footer = this.contentEl.createDiv({ cls: 'selfgrow-preference-footer' });
+    const status = footer.createSpan({
+      cls: 'selfgrow-preference-status',
+      text:
+        this.#selected.interested.length > 0 && this.#selected.uninterested.length > 0
+          ? ''
+          : copy.needBoth,
+    });
+    const actions = footer.createDiv({ cls: 'selfgrow-preference-actions' });
+    const cancel = actions.createEl('button', { text: copy.cancel });
+    cancel.addEventListener('click', () => this.close());
+    const save = actions.createEl('button', {
+      cls: 'mod-cta',
+      text: copy.save,
+    });
+    save.disabled =
+      this.#selected.interested.length === 0 || this.#selected.uninterested.length === 0;
+    save.addEventListener('click', () => {
+      if (save.disabled) return;
+      save.disabled = true;
+      status.setText('');
+      void this.#onSave({
+        interested: [...this.#selected.interested],
+        uninterested: [...this.#selected.uninterested],
+      })
+        .then(() => this.close())
+        .catch(() => {
+          save.disabled = false;
+          status.setText(copy.saveFailed);
+        });
+    });
+  }
+
+  #renderGroup(
+    group: PreferenceGroup,
+    presets: readonly KeywordPreset[],
+    title: string,
+    hint: string,
+  ): void {
+    const copy = PREFERENCE_MODAL_COPY[this.#language];
+    const section = this.contentEl.createDiv({ cls: `selfgrow-preference-section is-${group}` });
+    const heading = section.createDiv({ cls: 'selfgrow-preference-section-heading' });
+    heading.createEl('h3', { text: title });
+    const headingActions = heading.createDiv({ cls: 'selfgrow-preference-heading-actions' });
+    headingActions.createSpan({
+      cls: 'selfgrow-preference-count',
+      text: `${this.#selected[group].length}/30`,
+    });
+    const refresh = headingActions.createEl('button', {
+      attr: { 'aria-label': copy.refresh, title: copy.refresh, type: 'button' },
+      cls: 'selfgrow-preference-refresh',
+    });
+    setIcon(refresh, 'refresh-cw');
+    refresh.createSpan({ text: copy.refresh });
+    refresh.addEventListener('click', () => {
+      this.#batchStarts[group] = (this.#batchStarts[group] + PRESET_BATCH_SIZE) % presets.length;
+      this.#showCustom[group] = false;
+      this.#render();
+    });
+    section.createEl('p', { cls: 'selfgrow-preference-hint', text: hint });
+    const bubbles = section.createDiv({ cls: 'selfgrow-preference-bubbles' });
+    for (const preset of this.#visiblePresets(group, presets)) {
+      const selected = this.#presetValue(group, preset) !== null;
+      const bubble = bubbles.createEl('button', {
+        attr: { 'aria-pressed': String(selected), type: 'button' },
+        cls: `selfgrow-preference-bubble${selected ? ' is-selected' : ''}`,
+        text: preset[this.#language],
+      });
+      bubble.addEventListener('click', () => {
+        this.#togglePreset(group, preset);
+        this.#render();
+      });
+    }
+
+    for (const keyword of this.#customKeywords(group, presets)) {
+      const bubble = bubbles.createEl('button', {
+        attr: {
+          'aria-label': `${keyword} ×`,
+          title: `${keyword} ×`,
+          type: 'button',
+        },
+        cls: 'selfgrow-preference-bubble is-selected is-custom',
+        text: `${keyword} ×`,
+      });
+      bubble.addEventListener('click', () => {
+        this.#removeKeyword(group, keyword);
+        this.#render();
+      });
+    }
+
+    const customToggle = bubbles.createEl('button', {
+      attr: { type: 'button' },
+      cls: 'selfgrow-preference-bubble is-add',
+      text: `＋ ${copy.addCustom}`,
+    });
+    customToggle.addEventListener('click', () => {
+      this.#showCustom[group] = !this.#showCustom[group];
+      this.#render();
+    });
+    if (this.#showCustom[group]) this.#renderCustomInput(section, group);
+  }
+
+  #renderCustomInput(container: HTMLElement, group: PreferenceGroup): void {
+    const copy = PREFERENCE_MODAL_COPY[this.#language];
+    const row = container.createDiv({ cls: 'selfgrow-preference-custom-row' });
+    const input = row.createEl('input', {
+      attr: {
+        maxlength: '40',
+        placeholder: copy.customPlaceholder,
+        type: 'text',
+      },
+    });
+    const add = row.createEl('button', { text: copy.add });
+    add.disabled = true;
+    input.addEventListener('input', () => {
+      add.disabled = normalizeKeyword(input.value).length === 0;
+    });
+    const submit = (): void => {
+      const keyword = normalizeKeyword(input.value);
+      if (keyword.length === 0) return;
+      if (this.#selected[group].length >= 30) {
+        new Notice(copy.keywordLimit);
+        return;
+      }
+      this.#addKeyword(group, keyword);
+      this.#showCustom[group] = false;
+      this.#render();
+    };
+    add.addEventListener('click', submit);
+    input.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      submit();
+    });
+    input.focus();
+  }
+
+  #togglePreset(group: PreferenceGroup, preset: KeywordPreset): void {
+    const existing = this.#presetValue(group, preset);
+    for (const label of [preset.en, preset['zh-CN']]) this.#removeKeyword(group, label);
+    if (existing !== null) return;
+    if (this.#selected[group].length >= 30) {
+      new Notice(PREFERENCE_MODAL_COPY[this.#language].keywordLimit);
+      return;
+    }
+    const other: PreferenceGroup = group === 'interested' ? 'uninterested' : 'interested';
+    for (const label of [preset.en, preset['zh-CN']]) this.#removeKeyword(other, label);
+    this.#addKeyword(group, preset[this.#language]);
+  }
+
+  #visiblePresets(
+    group: PreferenceGroup,
+    presets: readonly KeywordPreset[],
+  ): readonly KeywordPreset[] {
+    const selected = presets.filter((preset) => this.#presetValue(group, preset) !== null);
+    const batch = Array.from(
+      { length: Math.min(PRESET_BATCH_SIZE, presets.length) },
+      (_, index) => presets[(this.#batchStarts[group] + index) % presets.length],
+    ).filter((preset): preset is KeywordPreset => preset !== undefined);
+    return [...selected, ...batch.filter((preset) => !selected.includes(preset))];
+  }
+
+  #addKeyword(group: PreferenceGroup, keyword: string): void {
+    const other: PreferenceGroup = group === 'interested' ? 'uninterested' : 'interested';
+    this.#removeKeyword(other, keyword);
+    if (this.#hasKeyword(group, keyword)) return;
+    this.#selected[group].push(keyword);
+  }
+
+  #removeKeyword(group: PreferenceGroup, keyword: string): void {
+    const normalized = keyword.toLocaleLowerCase();
+    this.#selected[group] = this.#selected[group].filter(
+      (value) => value.toLocaleLowerCase() !== normalized,
+    );
+  }
+
+  #hasKeyword(group: PreferenceGroup, keyword: string): boolean {
+    const normalized = keyword.toLocaleLowerCase();
+    return this.#selected[group].some((value) => value.toLocaleLowerCase() === normalized);
+  }
+
+  #presetValue(group: PreferenceGroup, preset: KeywordPreset): string | null {
+    return (
+      this.#selected[group].find(
+        (value) =>
+          value.toLocaleLowerCase() === preset.en.toLocaleLowerCase() ||
+          value.toLocaleLowerCase() === preset['zh-CN'].toLocaleLowerCase(),
+      ) ?? null
+    );
+  }
+
+  #customKeywords(group: PreferenceGroup, presets: readonly KeywordPreset[]): string[] {
+    return this.#selected[group].filter(
+      (value) => !presets.some((preset) => this.#presetValueForValue(preset, value)),
+    );
+  }
+
+  #presetValueForValue(preset: KeywordPreset, value: string): boolean {
+    const normalized = value.toLocaleLowerCase();
+    return (
+      normalized === preset.en.toLocaleLowerCase() ||
+      normalized === preset['zh-CN'].toLocaleLowerCase()
+    );
+  }
+}
+
+function normalizeKeyword(value: string): string {
+  return value.trim().replace(/\s+/gu, ' ').slice(0, 40);
 }
