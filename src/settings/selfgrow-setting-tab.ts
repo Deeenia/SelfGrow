@@ -270,6 +270,13 @@ export class SelfGrowSettingTab extends PluginSettingTab {
     }).open();
   }
 
+  refreshAfterSecretSave(): void {
+    this.#chatModels = [];
+    this.#chatModelsSignature = '';
+    this.update();
+    void this.#loadChatModels();
+  }
+
   #renderModelSetting(
     copy: (typeof COPY)[Language],
     key: 'chat',
@@ -447,18 +454,39 @@ export class SelfGrowSettingTab extends PluginSettingTab {
 }
 
 export function observeNativeSecretAddKeyButtons(): () => void {
-  const hide = (): void => {
+  const intercept = (): void => {
     for (const element of document.querySelectorAll<HTMLElement>('button, a')) {
       const label = element.textContent?.trim() ?? '';
-      if (/^(?:添加密钥|添加模型|Add key|Add model)/i.test(label)) {
-        element.addClass('selfgrow-hidden');
+      if (
+        !/^(?:添加密钥|添加模型|Add key|Add model)/i.test(label) ||
+        element.hasClass('selfgrow-native-add-key')
+      ) {
+        continue;
       }
+      element.addClass('selfgrow-native-add-key');
+      element.addEventListener(
+        'click',
+        (event) => {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          window.dispatchEvent(new CustomEvent('selfgrow:open-add-key'));
+        },
+        true,
+      );
     }
   };
-  hide();
-  const observer = new MutationObserver(hide);
+  intercept();
+  const observer = new MutationObserver(intercept);
   observer.observe(document.body, { childList: true, subtree: true });
   return () => observer.disconnect();
+}
+
+export function openNewChatSecretModal(
+  app: App,
+  host: SelfGrowSettingsHost,
+  onSaved: () => void,
+): void {
+  new NewChatSecretModal(app, host, 'chat', '', '', onSaved).open();
 }
 
 class ManageChatSecretModal extends Modal {
