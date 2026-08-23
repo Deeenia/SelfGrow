@@ -121,7 +121,8 @@ D:\ai_test\test\test\.obsidian\plugins\selfgrow\
   - `lint` 通过；
   - `typecheck` 通过；
   - 35 个测试文件，288 个测试全部通过；
-  - Python guard `py_compile` 通过。
+  - Python guard `py_compile` 通过；
+  - Python guard `self-test` 通过。
 
 ### Git status
 
