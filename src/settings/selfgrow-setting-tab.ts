@@ -450,7 +450,7 @@ export function observeNativeSecretAddKeyButtons(): () => void {
   const hide = (): void => {
     for (const element of document.querySelectorAll<HTMLElement>('button, a')) {
       const label = element.textContent?.trim() ?? '';
-      if (/^(?:������Կ|Add key|Add Key)$/i.test(label)) {
+      if (/^(?:������Կ|����ģ��|Add key|Add model)/i.test(label)) {
         element.addClass('selfgrow-hidden');
       }
     }
