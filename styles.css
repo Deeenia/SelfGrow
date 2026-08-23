@@ -870,3 +870,7 @@
 .selfgrow-internal .inline-title {
   display: none !important;
 }
+
+.selfgrow-hidden {
+  display: none !important;
+}
