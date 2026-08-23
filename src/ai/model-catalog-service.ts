@@ -96,15 +96,18 @@ export class ModelCatalogService {
     }
 
     const payload: z.infer<typeof modelsResponseSchema> = parsed.data;
-    return [...new Set<string>(payload.data.map((item) => item.id))]
-      .sort((left, right) => left.localeCompare(right))
-      .map((id) => ({ description: modelDescription(id, language), id }));
+    return orderProviderModelIDs(
+      configuration.preset,
+      filterProviderModelIDs(configuration.preset, [
+        ...new Set<string>(payload.data.map((item) => item.id)),
+      ]),
+    ).map((id) => ({ description: modelDescription(id, language), id }));
   }
 
   /**
-   * Loads remote models when a valid key is available, then merges the local
-   * provider catalog. Missing or invalid keys fall back to the local catalog so
-   * switching providers or keys never blocks model selection.
+   * Loads the provider's current remote catalog when a valid key is available.
+   * Missing or invalid keys fall back to a compact local catalog so switching
+   * providers or keys never blocks model selection.
    */
   async listWithFallback(language: Language): Promise<ModelCatalogEntry[]> {
     const configuration = this.#dependencies.configuration();
@@ -120,12 +123,32 @@ export class ModelCatalogService {
     }
 
     try {
-      return mergeModelCatalogs(local, await this.list(language));
+      return await this.list(language);
     } catch (error) {
       if (isModelCatalogFallbackError(error)) return local;
       throw error;
     }
   }
+}
+
+function filterProviderModelIDs(
+  preset: EndpointSettings['preset'],
+  ids: readonly string[],
+): string[] {
+  const curated = CURATED_PROVIDER_MODEL_IDS[preset];
+  if (curated === undefined) return [...ids];
+  const allowed = new Set(curated);
+  return ids.filter((id) => allowed.has(id));
+}
+
+function orderProviderModelIDs(
+  preset: EndpointSettings['preset'],
+  ids: readonly string[],
+): string[] {
+  const order = CURATED_PROVIDER_MODEL_IDS[preset];
+  if (order === undefined) return [...ids].sort((left, right) => left.localeCompare(right));
+  const available = new Set(ids);
+  return order.filter((id) => available.has(id));
 }
 
 export function modelsEndpoint(baseURL: string): string {
@@ -156,6 +179,10 @@ function parseJSON(value: string): unknown {
 
 export function knownModelCatalog(baseURL: string, language: Language): ModelCatalogEntry[] {
   const family = providerFamily(baseURL);
+  const curated = CURATED_PROVIDER_MODEL_IDS[family];
+  if (curated !== undefined) {
+    return curated.map((id) => ({ description: modelDescription(id, language), id }));
+  }
   const prefixes = PROVIDER_MODEL_PREFIXES[family];
   return Object.keys(MODEL_PROFILES)
     .filter((id) => prefixes.some((prefix) => id.startsWith(prefix)))
@@ -177,6 +204,14 @@ const PROVIDER_MODEL_PREFIXES: Readonly<Record<ModelProviderFamily, readonly str
   qwen: ['qwen-'],
 };
 
+const CURATED_PROVIDER_MODEL_IDS: Readonly<
+  Partial<Record<EndpointSettings['preset'] | ModelProviderFamily, readonly string[]>>
+> = {
+  deepseek: ['deepseek-v4-flash', 'deepseek-v4-pro'],
+  kimi: ['kimi-k3', 'kimi-k2.7-code', 'kimi-k2.7-code-highspeed', 'kimi-k2.6'],
+  qwen: ['qwen3.8-max', 'qwen3.7-plus', 'qwen3.7-flash'],
+};
+
 function providerFamily(baseURL: string): ModelProviderFamily {
   const hostname = new URL(baseURL.trim()).hostname.toLowerCase();
   if (hostname === 'api.deepseek.com' || hostname.endsWith('.deepseek.com')) return 'deepseek';
@@ -191,18 +226,6 @@ function providerFamily(baseURL: string): ModelProviderFamily {
     return 'kimi';
   }
   return 'custom';
-}
-
-function mergeModelCatalogs(
-  local: readonly ModelCatalogEntry[],
-  remote: readonly ModelCatalogEntry[],
-): ModelCatalogEntry[] {
-  const byID = new Map<string, ModelCatalogEntry>();
-  for (const entry of [...local, ...remote]) {
-    const current = byID.get(entry.id);
-    if (current === undefined || current.description.length === 0) byID.set(entry.id, entry);
-  }
-  return [...byID.values()].sort((left, right) => left.id.localeCompare(right.id));
 }
 
 function isModelCatalogFallbackError(error: unknown): boolean {
@@ -236,6 +259,9 @@ const MODEL_PROFILES: Readonly<Record<string, ModelProfile>> = {
     positioning: { en: 'low-cost fast', 'zh-CN': '高性价比快速' },
     recommended: true,
   },
+  'deepseek-v4-pro': {
+    positioning: { en: 'flagship reasoning', 'zh-CN': '旗舰推理模型' },
+  },
   'deepseek-v4-flash-vision-exp': {
     multimodal: true,
     positioning: { en: 'experimental vision', 'zh-CN': '视觉实验模型' },
@@ -253,20 +279,35 @@ const MODEL_PROFILES: Readonly<Record<string, ModelProfile>> = {
   'gpt-5.6-sol': {
     positioning: { en: 'coding agent, high usage', 'zh-CN': '编码 Agent，用量较高' },
   },
-  'qwen-max': {
+  'qwen3.8-max': {
     positioning: { en: 'flagship', 'zh-CN': '旗舰模型' },
     recommended: true,
   },
-  'qwen-plus': {
-    positioning: { en: 'balanced', 'zh-CN': '均衡模型' },
+  'qwen3.7-plus': {
+    multimodal: true,
+    positioning: { en: 'balanced multimodal', 'zh-CN': '均衡多模态' },
+    recommended: true,
   },
-  'qwen-turbo': {
-    positioning: { en: 'fast response', 'zh-CN': '快速响应' },
+  'qwen3.7-flash': {
+    positioning: { en: 'fast and economical', 'zh-CN': '快速经济' },
+    recommended: true,
   },
   'kimi-k3': {
     multimodal: true,
     positioning: { en: 'flagship', 'zh-CN': '旗舰模型' },
     recommended: true,
+  },
+  'kimi-k2.7-code': {
+    multimodal: true,
+    positioning: { en: 'agentic coding', 'zh-CN': '智能体编程' },
+  },
+  'kimi-k2.7-code-highspeed': {
+    multimodal: true,
+    positioning: { en: 'high-speed coding', 'zh-CN': '高速编程' },
+  },
+  'kimi-k2.6': {
+    multimodal: true,
+    positioning: { en: 'general multimodal', 'zh-CN': '通用多模态' },
   },
   'kimi-latest': {
     positioning: { en: 'latest pointer', 'zh-CN': '最新动态' },

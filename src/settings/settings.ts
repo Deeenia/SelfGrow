@@ -2,7 +2,14 @@ import { LANGUAGES } from '../domain';
 import { SelfGrowError } from '../domain/errors';
 import { z } from '../schema/zod';
 
-export const PROVIDER_PRESETS = ['openai', 'deepseek', 'qwen', 'kimi', 'custom'] as const;
+export const PROVIDER_PRESETS = [
+  'unconfigured',
+  'openai',
+  'deepseek',
+  'qwen',
+  'kimi',
+  'custom',
+] as const;
 export const EXTRACTION_PROVIDER_PRESETS = ['tikhub', 'custom'] as const;
 
 const providerPresetSchema = z.enum(PROVIDER_PRESETS);
@@ -74,7 +81,7 @@ export interface SettingsLogSummary {
 
 export function createDefaultSettings(): SelfGrowSettings {
   return {
-    chat: emptyEndpoint('openai'),
+    chat: emptyEndpoint('unconfigured'),
     chatSecretProfiles: {},
     extraction: null,
     language: 'zh-CN',
@@ -119,6 +126,38 @@ export function updateChat(
   patch: Partial<EndpointConfiguration>,
 ): SelfGrowSettings {
   return { ...settings, chat: updateEndpoint(settings.chat, patch) };
+}
+
+export function changeChatSecret(settings: SelfGrowSettings, secretName: string): SelfGrowSettings {
+  if (secretName === settings.chat.secretName) return settings;
+  if (settings.chat.secretName.trim().length === 0) {
+    return {
+      ...settings,
+      chat: { ...settings.chat, connectionTest: null, secretName },
+    };
+  }
+  return {
+    ...settings,
+    chat: {
+      ...settings.chat,
+      connectionTest: null,
+      model: '',
+      preset: 'unconfigured',
+      secretName,
+    },
+  };
+}
+
+export function chatModelLoadConfigurationReady(
+  endpoint: EndpointSettings,
+  secretValue: string | null,
+): boolean {
+  return (
+    endpoint.preset !== 'unconfigured' &&
+    endpoint.secretName.trim().length > 0 &&
+    secretValue !== null &&
+    secretValue.trim().length > 0
+  );
 }
 
 export function updateExtraction(

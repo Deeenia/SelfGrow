@@ -121,21 +121,23 @@ describe('Task-015 chat connection test', () => {
     expect(JSON.parse(call?.body ?? '')).toEqual({
       messages: [{ content: CHAT_CONNECTION_PROBE.message, role: 'user' }],
       model: MODEL,
-      max_tokens: 256,
+      max_tokens: 64,
       temperature: 0,
     });
     expect(call?.body).not.toContain(OBVIOUSLY_FAKE_SECRET);
   });
 
-  it('uses a multimodal probe for known vision models', async () => {
+  it('uses a lightweight provider-compatible probe for Kimi models', async () => {
     const transport = new FixtureHTTPTransport([route(successBody())]);
     await service(transport).testChat(configuration({ model: 'kimi-k3', preset: 'kimi' }));
 
     const call = transport.calls[0];
-    expect(call?.body).toContain('data:image/png;base64,');
-    expect(call?.body).toContain('"type":"image_url"');
-    expect(call?.body).toContain('"type":"text"');
-    expect(call?.body).toContain(CHAT_CONNECTION_PROBE.message);
+    expect(JSON.parse(call?.body ?? '')).toEqual({
+      max_completion_tokens: 64,
+      messages: [{ content: CHAT_CONNECTION_PROBE.message, role: 'user' }],
+      model: 'kimi-k3',
+      reasoning_effort: 'low',
+    });
   });
 
   it('accepts reasoning models that return only reasoning_content', async () => {
@@ -183,7 +185,7 @@ describe('Task-015 chat connection test', () => {
     await service(transport).testChat(
       configuration({ model: 'deepseek-v4-flash-vision-exp', preset: 'deepseek' }),
     );
-    expect(transport.calls[0]?.body).toContain('data:image/png;base64,');
+    expect(transport.calls[0]?.body).not.toContain('data:image/png;base64,');
   });
 
   it('resolves the SecretStorage reference anew on every testChat call', async () => {

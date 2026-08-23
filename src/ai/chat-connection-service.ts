@@ -1,4 +1,3 @@
-import { isKnownMultimodalModel } from './model-catalog-service';
 import { SelfGrowError, isSelfGrowError, type Language } from '../domain';
 import type {
   HTTPRequest,
@@ -11,10 +10,8 @@ import { z } from '../schema/zod';
 import type { EndpointSettings } from '../settings';
 
 const CHAT_PROBE_MESSAGE = 'Reply with OK.';
-const CHAT_PROBE_TIMEOUT_MS = 10_000;
+const CHAT_PROBE_TIMEOUT_MS = 30_000;
 const CHAT_PROBE_MAX_RESPONSE_BYTES = 65_536;
-const VISION_PROBE_IMAGE =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
 
 const chatMessageContentSchema = z.union([
   z.string(),
@@ -67,6 +64,7 @@ export interface ChatConnectionTestResult {
 interface ResolvedConfiguration {
   endpointURL: string;
   model: string;
+  preset: EndpointSettings['preset'];
   secretName: string;
 }
 
@@ -145,22 +143,7 @@ export class ChatConnectionService {
     }
 
     const request: HTTPRequest = {
-      body: JSON.stringify({
-        max_tokens: 256,
-        messages: [
-          {
-            content: isKnownMultimodalModel(resolved.model)
-              ? [
-                  { image_url: { url: VISION_PROBE_IMAGE }, type: 'image_url' },
-                  { text: CHAT_PROBE_MESSAGE, type: 'text' },
-                ]
-              : CHAT_PROBE_MESSAGE,
-            role: 'user',
-          },
-        ],
-        model: resolved.model,
-        temperature: 0,
-      }),
+      body: JSON.stringify(chatProbeBody(resolved)),
       headers: {
         Authorization: `Bearer ${secret}`,
         'Content-Type': 'application/json',
@@ -210,8 +193,24 @@ function resolveConfiguration(
   return {
     endpointURL: chatCompletionsEndpoint(baseURL, language),
     model,
+    preset: configuration.preset,
     secretName,
   };
+}
+
+function chatProbeBody(resolved: ResolvedConfiguration): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    messages: [{ content: CHAT_PROBE_MESSAGE, role: 'user' }],
+    model: resolved.model,
+  };
+  if (resolved.preset === 'kimi') {
+    body.max_completion_tokens = 64;
+    if (resolved.model === 'kimi-k3') body.reasoning_effort = 'low';
+  } else {
+    body.max_tokens = 64;
+    body.temperature = 0;
+  }
+  return body;
 }
 
 function chatCompletionsEndpoint(baseURL: string, language: Language): string {

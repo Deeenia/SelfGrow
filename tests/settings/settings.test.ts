@@ -6,6 +6,8 @@ import {
   EXTRACTION_PROVIDER_PRESETS,
   PROVIDER_PRESETS,
   applyChatSecretProfile,
+  changeChatSecret,
+  chatModelLoadConfigurationReady,
   createDefaultSettings,
   loadSettings,
   markConnectionTested,
@@ -36,10 +38,23 @@ describe('settings', () => {
   it('uses mobile-safe validation and only current configuration surfaces', () => {
     const settings = createDefaultSettings();
     expect(z.config().jitless).toBe(true);
-    expect(PROVIDER_PRESETS).toEqual(['openai', 'deepseek', 'qwen', 'kimi', 'custom']);
+    expect(PROVIDER_PRESETS).toEqual([
+      'unconfigured',
+      'openai',
+      'deepseek',
+      'qwen',
+      'kimi',
+      'custom',
+    ]);
     expect(EXTRACTION_PROVIDER_PRESETS).toEqual(['tikhub', 'custom']);
     expect(settings).toEqual({
-      chat: { baseURL: '', connectionTest: null, model: '', preset: 'openai', secretName: '' },
+      chat: {
+        baseURL: '',
+        connectionTest: null,
+        model: '',
+        preset: 'unconfigured',
+        secretName: '',
+      },
       chatSecretProfiles: {},
       extraction: null,
       language: 'zh-CN',
@@ -66,6 +81,44 @@ describe('settings', () => {
       testedAt,
     });
     expect(settings.extraction?.connectionTest?.testedAt).toBe(testedAt);
+  });
+
+  it('requires a provider and stored API key before loading models', () => {
+    const configured = endpoint();
+    expect(chatModelLoadConfigurationReady(configured, OBVIOUSLY_FAKE_SECRET)).toBe(true);
+    expect(
+      chatModelLoadConfigurationReady(
+        { ...configured, preset: 'unconfigured' },
+        OBVIOUSLY_FAKE_SECRET,
+      ),
+    ).toBe(false);
+    expect(chatModelLoadConfigurationReady(configured, null)).toBe(false);
+    expect(chatModelLoadConfigurationReady(configured, '   ')).toBe(false);
+  });
+
+  it('clears the provider and model when the selected key changes', () => {
+    const settings = { ...createDefaultSettings(), chat: endpoint() };
+    const changed = changeChatSecret(settings, 'Another Secret');
+    expect(changed.chat).toMatchObject({
+      baseURL: settings.chat.baseURL,
+      connectionTest: null,
+      model: '',
+      preset: 'unconfigured',
+      secretName: 'Another Secret',
+    });
+    expect(changeChatSecret(settings, settings.chat.secretName)).toBe(settings);
+
+    const firstSelection = changeChatSecret(
+      {
+        ...settings,
+        chat: { ...settings.chat, preset: 'kimi', secretName: '' },
+      },
+      'First Secret',
+    );
+    expect(firstSelection.chat).toMatchObject({
+      preset: 'kimi',
+      secretName: 'First Secret',
+    });
   });
 
   it('persists references but never secret values', () => {

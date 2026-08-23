@@ -68,6 +68,48 @@ D:\ai_test\test\test\.obsidian\plugins\selfgrow\
 - [x] 2026-08-20：iOS 完全重启后插件仍正常。
 - [x] 2026-08-20：用户确认 iOS 端同步与运行正常。
 
+## [Unreleased] - 2026-08-23
+
+### Model provider & key management
+
+- 新增 `unconfigured` 服务商初始状态，避免默认绑定错误服务商。
+- 恢复使用 Obsidian 原生 `SecretComponent` 管理密钥。
+- 选择/切换 SecretStorage 密钥时，清空旧的 provider 和 model，要求重新选择服务商。
+- 模型列表加载前校验：服务商已选择、密钥已保存、SecretStorage 中存在有效 Key。
+- 模型列表支持“手动输入其他模型”。
+- 模型列表按服务商 curated 目录过滤和排序，避免 Qwen 列表混入 Kimi 模型。
+- 更新当前推荐模型目录：
+  - DeepSeek：`deepseek-v4-flash`、`deepseek-v4-pro`
+  - Qwen：`qwen3.8-max`、`qwen3.7-plus`、`qwen3.7-flash`
+  - Kimi：`kimi-k3`、`kimi-k2.7-code`、`kimi-k2.7-code-highspeed`、`kimi-k2.6`
+
+### Chat connection test
+
+- 连接测试超时从 10s 提高到 30s。
+- Kimi 使用轻量 provider-compatible 探测参数。
+- 支持 reasoning-only 响应和多模态 content array 响应。
+- 移除依赖本地模型目录的图片探测逻辑。
+
+### Multi-harness support
+
+- Python guard 新增 `bootstrap` 命令。
+- 新增 `docs/harness-compatibility.md`。
+- 新增 `skills/selfgrow-wiki/BOOTSTRAP.md`。
+- 新增 `docs/AGENTS.template.md`，并复制到测试 Vault。
+- 已验证：
+  - Codex
+  - opencode
+  - dsh
+  - WorkBuddy Desktop
+
+### Verification
+
+- 当前未提交工作区验证通过：
+  - `format:check`
+  - `lint`
+  - `typecheck`
+  - 35 个测试文件，285 个测试全部通过
+
 ### Git status
 
 - `feature/android-compat` 已推送到 `origin/feature/android-compat`。

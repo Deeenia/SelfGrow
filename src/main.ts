@@ -61,12 +61,7 @@ import {
   serializeSettings,
   type SelfGrowSettings,
 } from './settings';
-import {
-  observeNativeSecretAddKeyButtons,
-  openNewChatSecretModal,
-  SelfGrowSettingTab,
-  type SelfGrowSettingsHost,
-} from './settings/selfgrow-setting-tab';
+import { SelfGrowSettingTab, type SelfGrowSettingsHost } from './settings/selfgrow-setting-tab';
 import { URLService } from './url';
 import { normalizeObsidianPath } from './vault/obsidian-path-normalizer';
 import { PathGuard, resolveSelfGrowRootPath } from './vault';
@@ -90,16 +85,7 @@ export default class SelfGrowPlugin extends Plugin implements SelfGrowSettingsHo
         : stored;
     this.#settings = loadSettings(storedSettings);
     await this.#persistData();
-    const settingTab = new SelfGrowSettingTab(this.app, this);
-    this.addSettingTab(settingTab);
-    this.register(observeNativeSecretAddKeyButtons());
-    const openAddKeyHandler = (): void => {
-      openNewChatSecretModal(this.app, this, () => {
-        settingTab.refreshAfterSecretSave();
-      });
-    };
-    window.addEventListener('selfgrow:open-add-key', openAddKeyHandler);
-    this.register(() => window.removeEventListener('selfgrow:open-add-key', openAddKeyHandler));
+    this.addSettingTab(new SelfGrowSettingTab(this.app, this));
     this.registerView(
       INBOX_VIEW_TYPE,
       (leaf) =>
