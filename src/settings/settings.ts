@@ -178,7 +178,7 @@ export function chatModelLoadConfigurationReady(
 }
 
 export function preferenceKeywordsReady(keywords: PreferenceKeywordSettings): boolean {
-  return keywords.interested.length > 0 && keywords.uninterested.length > 0;
+  return keywords.interested.length > 0 || keywords.uninterested.length > 0;
 }
 
 export function updateExtraction(

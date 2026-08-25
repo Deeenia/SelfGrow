@@ -2,6 +2,7 @@ import {
   SelfGrowError,
   selfGrowID,
   type PreferenceRecommendation,
+  type PreferenceRecommendationIssue,
   type SelfGrowID,
   type VaultPath,
 } from '../domain';
@@ -35,6 +36,7 @@ export interface RawCardState {
   platform: string;
   previewMarkdown: string;
   recommendation: PreferenceRecommendation | null;
+  recommendationIssue?: PreferenceRecommendationIssue | null;
   sourceURL: string;
   title: string;
   wikiSelected: boolean;
@@ -74,6 +76,7 @@ const rawV2Schema = identitySchema.extend({
     .nullable()
     .optional(),
   recommendation_score: z.number().int().min(0).max(100).nullable().optional(),
+  recommendation_status: z.literal('invalid_output').nullable().optional(),
   recommendation_uninterested_keywords: z
     .array(z.string().min(1).max(40))
     .max(30)
@@ -267,6 +270,7 @@ export class RawCardService {
         ...presentation,
         path: safePath,
         recommendation: readRecommendation(frontmatter),
+        recommendationIssue: readRecommendationIssue(frontmatter),
         wikiSelected: false,
         wikiTargets: [],
       };
@@ -287,6 +291,7 @@ export class RawCardService {
         ...presentation,
         path: safePath,
         recommendation: readRecommendation(parsed.data),
+        recommendationIssue: readRecommendationIssue(parsed.data),
         wikiSelected: parsed.data.wiki_selected,
         wikiTargets: parsed.data.wiki_targets.map((target) => this.#assertWikiTarget(target)),
       };
@@ -476,6 +481,10 @@ function readRecommendation(frontmatter: Frontmatter): PreferenceRecommendation 
     reason,
     score,
   };
+}
+
+function readRecommendationIssue(frontmatter: Frontmatter): PreferenceRecommendationIssue | null {
+  return frontmatter.recommendation_status === 'invalid_output' ? 'invalid_output' : null;
 }
 
 function readKeywordMatches(value: unknown): string[] {

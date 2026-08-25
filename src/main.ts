@@ -58,8 +58,11 @@ import {
   loadSettings,
   markConnectionTested,
   markExtractionTested,
-  parsePreferenceProfileJSON,
+  PreferenceProfileStore,
+  preferenceProfileHasSignals,
+  preferenceProfilePath,
   serializeSettings,
+  type PreferenceKeywordSettings,
   type PreferenceProfile,
   type PreferenceProfileStatus,
   type SelfGrowSettings,
@@ -204,7 +207,7 @@ export default class SelfGrowPlugin extends Plugin implements SelfGrowSettingsHo
   }
 
   async openPreferenceProfile(): Promise<void> {
-    const path = siblingPreferenceProfilePath(this.#settings.rootPath);
+    const path = preferenceProfilePath(this.#settings.rootPath);
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!(file instanceof TFile)) {
       new Notice(
@@ -241,6 +244,23 @@ export default class SelfGrowPlugin extends Plugin implements SelfGrowSettingsHo
     this.#settings = serializeSettings(update(this.#settings));
     await this.#persistData();
     this.#refreshInternalPresentation();
+  }
+
+  async savePreferenceKeywords(keywords: PreferenceKeywordSettings): Promise<void> {
+    const store = this.#preferenceProfileStore();
+    const current = await store.load();
+    if (current.status.state === 'invalid') {
+      throw new SelfGrowError(
+        'OBSIDIAN_API_FAILED',
+        'The existing preference profile is invalid and was not overwritten.',
+      );
+    }
+    await this.updateSelfGrowSettings((settings) => ({
+      ...settings,
+      preferenceKeywords: keywords,
+      preferenceProfileEnabled: true,
+    }));
+    await store.syncKeywords(keywords, this.#settings.language);
   }
 
   async testChatConnection(): Promise<void> {
@@ -290,6 +310,18 @@ export default class SelfGrowPlugin extends Plugin implements SelfGrowSettingsHo
       if (!(await vault.exists(queuePath))) await vault.create(queuePath, '# SelfGrow\n');
       await initializeWikiSchema(vault, wikiPathGuard, !Platform.isMobile);
       const http = new ObsidianHTTPTransport();
+      try {
+        await this.#preferenceProfileStore(vault, clock).syncKeywords(
+          this.#settings.preferenceKeywords,
+          this.#settings.language,
+        );
+      } catch {
+        new Notice(
+          this.#settings.language === 'zh-CN'
+            ? '偏好协议未能同步关键词；原协议未被覆盖。'
+            : 'The preference profile could not synchronize keywords; the existing profile was preserved.',
+        );
+      }
       const urls = new URLService(http);
       const index = new URLNoteIndex(vault, frontmatter, pathGuard);
       await index.rebuild();
@@ -341,7 +373,6 @@ export default class SelfGrowPlugin extends Plugin implements SelfGrowSettingsHo
             };
           },
         },
-        preferenceKeywords: () => this.#settings.preferenceKeywords,
         preferenceProfile: () => this.#activePreferenceProfile(),
         secretResolver,
       });
@@ -371,7 +402,6 @@ export default class SelfGrowPlugin extends Plugin implements SelfGrowSettingsHo
       this.#recognitionGenerator = new RawEvidenceGenerator({
         configuration: () => this.#settings.chat,
         http,
-        preferenceKeywords: () => this.#settings.preferenceKeywords,
         preferenceProfile: () => this.#activePreferenceProfile(),
         secretResolver,
       });
@@ -419,31 +449,26 @@ export default class SelfGrowPlugin extends Plugin implements SelfGrowSettingsHo
 
   async #activePreferenceProfile(): Promise<PreferenceProfile | null> {
     if (!this.#settings.preferenceProfileEnabled) return null;
-    return (await this.#loadPreferenceProfile()).profile;
+    const profile = (await this.#loadPreferenceProfile()).profile;
+    return profile !== null && preferenceProfileHasSignals(profile) ? profile : null;
   }
 
   async #loadPreferenceProfile(): Promise<{
     profile: PreferenceProfile | null;
     status: PreferenceProfileStatus;
   }> {
-    const path = siblingPreferenceProfilePath(this.#settings.rootPath);
-    const file = this.app.vault.getAbstractFileByPath(path);
-    if (file === null) return { profile: null, status: { path, state: 'missing' } };
-    if (!(file instanceof TFile)) return { profile: null, status: { path, state: 'invalid' } };
-    try {
-      const profile = parsePreferenceProfileJSON(await this.app.vault.cachedRead(file));
-      return {
-        profile,
-        status: {
-          path,
-          profileVersion: profile.profileVersion,
-          state: 'ready',
-          updatedAt: profile.updatedAt,
-        },
-      };
-    } catch {
-      return { profile: null, status: { path, state: 'invalid' } };
-    }
+    return this.#preferenceProfileStore().load();
+  }
+
+  #preferenceProfileStore(
+    vault: ObsidianVaultAdapter = new ObsidianVaultAdapter(this.app.vault, this.app.fileManager),
+    clock: TemporalContext = new DeviceTemporalContext(),
+  ): PreferenceProfileStore {
+    return new PreferenceProfileStore({
+      clock,
+      rawRoot: this.#settings.rootPath,
+      vault,
+    });
   }
 
   async #retry(id: Parameters<InboxOperationalService['retry']>[0]): Promise<void> {
@@ -989,12 +1014,6 @@ function siblingWikiRoot(selfGrowRoot: string): string {
   const segments = selfGrowRoot.split('/');
   segments.pop();
   return [...segments, 'Wiki'].join('/');
-}
-
-function siblingPreferenceProfilePath(rawRoot: string): string {
-  const segments = normalizeObsidianPath(rawRoot).split('/');
-  segments.pop();
-  return [...segments, 'Preferences', 'preference-profile.json'].join('/');
 }
 
 function siblingQueuePath(rawRoot: string): VaultPath {

@@ -604,6 +604,21 @@ Acceptance:
 
 Completed on 2026-08-16. Added the `RawCategory` domain, fixed category folder bootstrap, the three-way Collect selector with AI-suggested updates, the strict recognition card with one repair and local fallback, structured-Markdown Raw material (mdast-based heading demotion plus GitHub relative-link rewriting), the GitHub repository extractor with language-aware README selection, GitHub name completion with candidate confirmation, the read-only scan report command, and the uninvoked migration capability. The complete gate passes formatting, lint without warnings, all 250 tests in 34 files, source/test typechecking, and production build; the bundle is reported in `project_status.md`, and the artifacts were installed to both desktop and iPhone plugin directories with matching SHA-256 hashes. Real-device verification remains for iPhone GitHub candidate selection, multi-language READMEs, AI-fallback hints, and iCloud plugin reload.
 
+### Task-055 Unified Personal Preference Profile
+
+Acceptance:
+
+- the Vault-local personal profile is the only personal scoring input for text/link and pure-image cards
+- saving interested/uninterested topic bubbles creates or replaces only reserved manual profile signals and writes a new profile version
+- topic-first then Agent-update preserves manual signals while adding reviewed project-derived signals
+- Agent-first then topic-update preserves project-derived signals and source hashes while adding manual signals
+- clearing topics removes only manual signals
+- model prompts contain the complete profile but no parallel keyword scoring payload or keyword-match output fields
+- invalid recommendation output never discards a valid core card; invalid full core receives one core-only repair, then local fallback
+- historical Raw scores and profile versions are never silently rewritten
+
+Implemented on 2026-08-25. Final gate, bundle, Skill self-test, and test-Vault installation results are recorded in `project_status.md` after validation.
+
 ### Task-032 Inbox View
 
 Acceptance:

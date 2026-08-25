@@ -112,7 +112,11 @@ function filterProviderModelIDs(
   const curated = CURATED_PROVIDER_MODEL_IDS[preset];
   if (curated === undefined) return [...ids];
   const allowed = new Set(curated);
-  return ids.filter((id) => allowed.has(id));
+  const filtered = ids.filter((id) => allowed.has(id));
+  for (const pinned of PINNED_PROVIDER_MODEL_IDS[preset] ?? []) {
+    if (!filtered.includes(pinned)) filtered.push(pinned);
+  }
+  return filtered;
 }
 
 function orderProviderModelIDs(
@@ -181,9 +185,15 @@ const PROVIDER_MODEL_PREFIXES: Readonly<Record<ModelProviderFamily, readonly str
 const CURATED_PROVIDER_MODEL_IDS: Readonly<
   Partial<Record<EndpointSettings['preset'] | ModelProviderFamily, readonly string[]>>
 > = {
-  deepseek: ['deepseek-v4-flash', 'deepseek-v4-pro'],
+  deepseek: ['deepseek-v4-flash', 'deepseek-v4-flash-vision-exp', 'deepseek-v4-pro'],
   kimi: ['kimi-k3', 'kimi-k2.7-code', 'kimi-k2.7-code-highspeed', 'kimi-k2.6'],
   qwen: ['qwen3.8-max', 'qwen3.7-plus', 'qwen3.7-flash'],
+};
+
+const PINNED_PROVIDER_MODEL_IDS: Readonly<
+  Partial<Record<EndpointSettings['preset'], readonly string[]>>
+> = {
+  deepseek: ['deepseek-v4-flash-vision-exp'],
 };
 
 function providerFamily(baseURL: string): ModelProviderFamily {

@@ -1,13 +1,15 @@
 {
-  "version": "user-keywords-profile-v2",
-  "basis": "The base score uses the interested and uninterested keywords explicitly stored in the current SelfGrow settings. An optional user-approved profile may add validated weighted signals at runtime; no personal profile is bundled with the plugin.",
-  "purpose": "Provide an advisory relevance score and disclose the configured keywords and approved profile signals matched by newly captured Raw material. The score must never auto-select, reject, delete, order, or distill content.",
+  "version": "unified-preference-profile-v4",
+  "basis": "The model directly scores the current capture using the complete user-approved natural-language preference profile. Topic selections revise that same profile instead of creating a separate scoring input. No personal profile is bundled with the plugin.",
+  "purpose": "Provide an advisory relevance score and disclose human-readable approved profile signals matched by newly captured Raw material. The score must never auto-select, reject, delete, order, or distill content.",
   "rules": [
-    "Report only exact configured keyword strings in the matched-keyword arrays",
+    "The personal profile is the only personal scoring input; manually selected topics become explicit versioned profile signals",
     "Use semantic evidence from the source rather than requiring a literal text occurrence",
-    "Do not invent interests or profile signal IDs, infer identity, or use Vault material outside the current capture",
-    "When a personal profile is active, the model reports exact matched signal IDs and the plugin applies their declared weights to the base score",
-    "Explain the score in one concise sentence and keep a neutral score when no configured keyword matches"
+    "Do not infer identity or use Vault material outside the current capture and reviewed profile",
+    "When a personal profile is active, read its positive and negative preferences, weights, labels, and descriptions in full and apply the weights exactly once",
+    "Matched personal preferences are optional human-readable labels and never a validity gate for the score",
+    "An invalid recommendation must not invalidate the title, category, preview, or capture",
+    "Explain the score in one concise sentence and keep a neutral score when no approved profile signal matches"
   ],
   "rubric": {
     "0-39": "Weak fit or low-signal material with little reusable value",

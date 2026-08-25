@@ -2,6 +2,7 @@ import type {
   Language,
   Platform,
   PreferenceRecommendation,
+  PreferenceRecommendationIssue,
   RawCategory,
   SelfGrowID,
 } from '../domain';
@@ -45,6 +46,7 @@ export interface ExtractedContent {
   visualRecognition?: {
     category: RawCategory;
     recommendation: PreferenceRecommendation | null;
+    recommendationIssue?: PreferenceRecommendationIssue | null;
     source: 'ai' | 'local';
   };
 }

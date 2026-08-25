@@ -81,13 +81,13 @@ distilled_at: null
 wiki_targets: [] # portable sibling-Wiki paths such as Wiki/Concepts/RAG.md
 distillation_error: null
 recognition_source: "ai | local" # whether the recognition card came from AI or local fallback
-preference_protocol_version: "user-keywords-profile-v2 | null"
+preference_protocol_version: "unified-preference-profile-v4 | historical version | null"
 preference_profile_version: "profile version | null" # Vault-local approved profile used for this card
 recommendation_score: 0-100 | null
 recommendation_reason: "one sentence | null"
-recommendation_interested_keywords: []   # exact configured keywords matched by this capture
-recommendation_uninterested_keywords: [] # exact configured keywords matched by this capture
-recommendation_preference_signals: []     # approved profile signal labels matched by this capture
+recommendation_interested_keywords: []   # historical cards only; new unified-profile cards leave empty
+recommendation_uninterested_keywords: [] # historical cards only; new unified-profile cards leave empty
+recommendation_preference_signals: []     # approved human-readable profile labels, including manual topics
 source_github_owner: "acme"       # GitHub sources only
 source_github_repo: "tool"        # GitHub sources only
 github_readme_path: "README.md"   # GitHub sources only: chosen README for diagnosis
@@ -115,7 +115,9 @@ github_readme_language: "zh-CN | en | null"
 [打开原文](https://example.com/article)
 ```
 
-Image Raw cards embed retained files from `SelfGrow/Attachments/`. When the selected model is known or explicitly marked as multimodal, a pure-image capture uses one bounded visual request for category, title, one-sentence preview, and optional keyword recommendation metadata. Unsupported or failed visual requests retain the image with an honest local fallback. Text/link cards do not call Chat for full-body summarization.
+Image Raw cards embed retained files from `SelfGrow/Attachments/`. When the selected model is known or explicitly marked as multimodal, a pure-image capture uses one bounded visual request for category, title, one-sentence preview, and optional unified-profile recommendation metadata. Unsupported or failed visual requests retain the image with an honest local fallback. Text/link cards do not call Chat for full-body summarization.
+
+The sibling `Preferences/preference-profile.json` remains schema version 1 and is the only personal scoring input. Topic-picker signals use reserved IDs beginning `manual-interest-` or `manual-uninterest-`, carry weights `8` or `-8`, and coexist with Agent-derived signals and authorized source hashes. The plugin may replace only reserved manual signals; the `selfgrow-wiki` Skill may update only the remaining reviewed signals and must preserve reserved signals exactly. Every successful change writes a new `profileVersion`; historical Raw metadata is never rewritten.
 
 ## 5. Raw Selection Schema
 

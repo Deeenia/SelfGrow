@@ -33,7 +33,7 @@ Show the complete draft and let the user accept, edit, or reject every candidate
 python SCRIPT validate-preference-profile --selfgrow-root ROOT --plan PLAN_JSON
 ```
 
-Show the returned complete profile, destination, current version, and source-summary hashes. Save only after explicit approval:
+Show the returned complete profile, destination, current version, and source-summary hashes. A profile may have been created first by the plugin's topic picker; preserve every existing signal whose ID starts with `manual-interest-` or `manual-uninterest-` exactly. Save only after explicit approval:
 
 ```text
 python SCRIPT apply-preference-profile --selfgrow-root ROOT --plan PLAN_JSON --approved
@@ -69,20 +69,28 @@ Create the proposal JSON outside the Vault:
 
 ```json
 {
-  "raws": [{"path":"Project/Raw.md","content_hash":"64 hex characters","targets":["Wiki/Concepts/Page.md"]}],
-  "pages": [{
-    "path":"Wiki/Concepts/Page.md",
-    "type":"concept",
-    "title":"Page",
-    "current_understanding_markdown":"Grounded synthesis.",
-    "method_and_boundary_markdown":"Method, applicability, and limits.",
-    "relation_markdown":"上位主题：[[Topic]]",
-    "personal_experience_markdown":"",
-    "experience_evidence":null,
-    "source_count":1
-  }],
-  "promoted_assets":[],
-  "index_markdown":"# SelfGrow Wiki\n..."
+  "raws": [
+    {
+      "path": "Project/Raw.md",
+      "content_hash": "64 hex characters",
+      "targets": ["Wiki/Concepts/Page.md"]
+    }
+  ],
+  "pages": [
+    {
+      "path": "Wiki/Concepts/Page.md",
+      "type": "concept",
+      "title": "Page",
+      "current_understanding_markdown": "Grounded synthesis.",
+      "method_and_boundary_markdown": "Method, applicability, and limits.",
+      "relation_markdown": "上位主题：[[Topic]]",
+      "personal_experience_markdown": "",
+      "experience_evidence": null,
+      "source_count": 1
+    }
+  ],
+  "promoted_assets": [],
+  "index_markdown": "# SelfGrow Wiki\n..."
 }
 ```
 
@@ -120,4 +128,4 @@ Show broken Raw links, protected links, orphan pages, missing Wiki links, and co
 python SCRIPT clean --selfgrow-root ROOT --approved
 ```
 
-Any broader repository-structure change requires a separate visible proposal, compatibility/rollback plan, and approval; never silently move existing Raw, Wiki pages, or assets. For preference updates, use the scoped, user-reviewed workflow above, choose a new `profileVersion`, validate before applying, and leave historical Raw scores unchanged.
+Any broader repository-structure change requires a separate visible proposal, compatibility/rollback plan, and approval; never silently move existing Raw, Wiki pages, or assets. For preference updates, use the scoped, user-reviewed workflow above, choose a new `profileVersion`, validate before applying, preserve plugin-managed manual topic signals exactly, and leave historical Raw scores unchanged. Either order is valid: topics may create the base profile before an Agent update, or an Agent may create the base profile before topics are added in the plugin.

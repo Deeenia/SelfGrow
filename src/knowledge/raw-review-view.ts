@@ -1,6 +1,7 @@
 import { ItemView, Modal, Notice, Setting, setIcon, TFile, type WorkspaceLeaf } from 'obsidian';
 import type { Language, VaultPath } from '../domain';
 import { rawReviewGroup, type RawCardState, type RawReviewGroup } from './raw-card';
+import { recommendationDegree } from './recommendation-degree';
 
 export const RAW_REVIEW_VIEW_TYPE = 'selfgrow-raw-review';
 
@@ -345,6 +346,12 @@ export class RawReviewView extends ItemView {
           text: copy.preferenceSignalMatches(card.recommendation.matchedPreferenceSignals ?? []),
         });
       }
+    } else if (card.recommendationIssue === 'invalid_output') {
+      body.createDiv({
+        attr: { 'aria-label': copy.recommendationUnavailable },
+        cls: 'selfgrow-review-recommendation is-unavailable',
+        text: copy.recommendationUnavailable,
+      });
     }
     if (card.imagePaths[0] !== undefined) {
       const file = this.app.vault.getAbstractFileByPath(card.imagePaths[0]);
@@ -624,8 +631,10 @@ const COPY = {
     preferenceVersion: (version: string) => `Preference protocol ${version}`,
     preferenceSignalMatches: (signals: readonly string[]) => `Profile: ${signals.join(', ')}`,
     recommendationLabel: (score: number, reason: string) =>
-      `Advisory relevance ${score} out of 100. ${reason}`,
-    recommendationScore: (score: number) => `Fit ${score}`,
+      `Advisory relevance ${score} out of 100, ${recommendationDegree(score, 'en')}. ${reason}`,
+    recommendationScore: (score: number) => `Fit ${score} · ${recommendationDegree(score, 'en')}`,
+    recommendationUnavailable:
+      'Preference-profile score was not generated; the title, category, and preview were kept.',
     review: 'Review',
     select: 'Select for distillation',
     states: {
@@ -676,8 +685,11 @@ const COPY = {
     previousPage: '上一页',
     preferenceVersion: (version: string) => `偏好协议 ${version}`,
     preferenceSignalMatches: (signals: readonly string[]) => `协议命中：${signals.join('、')}`,
-    recommendationLabel: (score: number, reason: string) => `参考推荐度 ${score} 分。${reason}`,
-    recommendationScore: (score: number) => `推荐度 ${score}`,
+    recommendationLabel: (score: number, reason: string) =>
+      `参考推荐度 ${score} 分，${recommendationDegree(score, 'zh-CN')}。${reason}`,
+    recommendationScore: (score: number) =>
+      `推荐度 ${score} · ${recommendationDegree(score, 'zh-CN')}`,
+    recommendationUnavailable: '偏好协议评分未生成；标题、分类和预览已正常保留。',
     review: '筛选',
     select: '选择沉淀',
     states: {

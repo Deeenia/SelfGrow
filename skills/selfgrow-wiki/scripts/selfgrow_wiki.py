@@ -1040,6 +1040,7 @@ PROFILE_SIGNAL_KEYS = {"id", "label", "description", "weight"}
 PROFILE_SOURCE_KEYS = {"project", "summaryHash"}
 PROFILE_SIGNAL_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 PROFILE_SUMMARY_HASH = re.compile(r"^[a-f0-9]{64}$")
+MANUAL_PREFERENCE_PREFIXES = ("manual-interest-", "manual-uninterest-")
 
 
 def preference_profile_path(root: Path) -> Path:
@@ -1088,10 +1089,10 @@ def validate_preference_profile_value(value: Any) -> dict[str, Any]:
     positive = value.get("positiveSignals")
     negative = value.get("negativeSignals")
     sources = value.get("sources")
-    if not isinstance(positive, list) or len(positive) > 20:
-        raise SkillError("Preference profile supports at most 20 positive signals.")
-    if not isinstance(negative, list) or len(negative) > 20:
-        raise SkillError("Preference profile supports at most 20 negative signals.")
+    if not isinstance(positive, list) or len(positive) > 50:
+        raise SkillError("Preference profile supports at most 50 positive signals.")
+    if not isinstance(negative, list) or len(negative) > 50:
+        raise SkillError("Preference profile supports at most 50 negative signals.")
     if not isinstance(sources, list) or len(sources) > 30:
         raise SkillError("Preference profile supports at most 30 source summaries.")
     checked_positive = [validate_preference_signal(item, "positive") for item in positive]
@@ -1142,11 +1143,28 @@ def validate_preference_profile(root: Path, plan: dict[str, Any]) -> dict[str, A
     current = preference_profile_status(root)
     if current.get("profile_version") == profile["profileVersion"]:
         raise SkillError("An updated preference profile must use a new profileVersion.")
+    target = preference_profile_path(root)
+    if current.get("state") == "ready" and target.is_file():
+        current_profile = validate_preference_profile_value(
+            json.loads(target.read_text(encoding="utf-8"))
+        )
+        if manual_preference_signals(current_profile) != manual_preference_signals(profile):
+            raise SkillError(
+                "Agent profile updates must preserve plugin-managed manual topic signals exactly."
+            )
     return {
         "current": current,
         "path": str(preference_profile_path(root)),
         "profile": profile,
         "writes_performed": False,
+    }
+
+
+def manual_preference_signals(profile: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {
+        signal["id"]: signal
+        for signal in [*profile["positiveSignals"], *profile["negativeSignals"]]
+        if signal["id"].startswith(MANUAL_PREFERENCE_PREFIXES)
     }
 
 
@@ -1188,11 +1206,33 @@ def self_test() -> None:
             "updatedAt": "2026-08-23T14:00:00Z",
             "positiveSignals": [
                 {
+                    "id": "manual-interest-academic-reading",
+                    "label": "感兴趣：学术阅读",
+                    "description": "用户在插件中明确选择，希望相关内容提高推荐度。",
+                    "weight": 8,
+                }
+            ],
+            "negativeSignals": [],
+            "sources": [],
+        }
+        profile_preview = validate_preference_profile(root, profile_plan)
+        assert profile_preview["writes_performed"] is False
+        assert preference_profile_status(root)["state"] == "missing"
+        profile_applied = apply_preference_profile(root, profile_plan)
+        assert profile_applied["profile_version"] == "self-test-v1"
+        assert preference_profile_status(root)["state"] == "ready"
+        preserved_profile = {
+            **profile_plan,
+            "profileVersion": "self-test-v2",
+            "updatedAt": "2026-08-23T15:00:00Z",
+            "positiveSignals": [
+                *profile_plan["positiveSignals"],
+                {
                     "id": "reproducible-evidence",
                     "label": "可复现证据",
                     "description": "包含可复现的数据、代码或方法步骤。",
                     "weight": 12,
-                }
+                },
             ],
             "negativeSignals": [
                 {
@@ -1204,15 +1244,22 @@ def self_test() -> None:
             ],
             "sources": [{"project": "Fixture", "summaryHash": "a" * 64}],
         }
-        profile_preview = validate_preference_profile(root, profile_plan)
-        assert profile_preview["writes_performed"] is False
-        assert preference_profile_status(root)["state"] == "missing"
-        profile_applied = apply_preference_profile(root, profile_plan)
-        assert profile_applied["profile_version"] == "self-test-v1"
-        assert preference_profile_status(root)["state"] == "ready"
-        invalid_profile = {**profile_plan, "profileVersion": "self-test-v2"}
+        assert validate_preference_profile(root, preserved_profile)["writes_performed"] is False
+        apply_preference_profile(root, preserved_profile)
+        removed_manual = {
+            **preserved_profile,
+            "profileVersion": "self-test-v3",
+            "positiveSignals": [preserved_profile["positiveSignals"][1]],
+        }
+        try:
+            validate_preference_profile(root, removed_manual)
+            raise AssertionError("Agent updates must preserve manual topic signals.")
+        except SkillError:
+            pass
+        invalid_profile = {**preserved_profile, "profileVersion": "self-test-v4"}
         invalid_profile["positiveSignals"] = [
-            {**profile_plan["positiveSignals"][0], "id": "Invalid ID"}
+            {**preserved_profile["positiveSignals"][0], "id": "Invalid ID"},
+            preserved_profile["positiveSignals"][1],
         ]
         try:
             validate_preference_profile(root, invalid_profile)

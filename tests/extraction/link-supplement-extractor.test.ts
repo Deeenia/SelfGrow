@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { selfGrowID } from '../../src/domain';
+import { SelfGrowError, selfGrowID } from '../../src/domain';
 import {
   LinkSupplementExtractor,
   type CaptureVisionPort,
@@ -177,7 +177,10 @@ describe('LinkSupplementExtractor', () => {
 
   it('still creates an honest image Raw when the configured model has no vision support', async () => {
     const noVision: CaptureVisionPort = {
-      preview: () => Promise.reject(new Error('Model does not support images.')),
+      preview: () =>
+        Promise.reject(
+          new SelfGrowError('AI_PROTOCOL_UNSUPPORTED', 'Model does not support images.'),
+        ),
       recognize: () => Promise.resolve(''),
     };
     const base: ContentExtractor = {
@@ -199,7 +202,7 @@ describe('LinkSupplementExtractor', () => {
       ),
     ).resolves.toMatchObject({
       content: {
-        body: '原图已保留；当前模型无法生成视觉描述，选择沉淀后可由智能体直接理解图片。',
+        body: '原图已保留；当前模型未配置为支持图片理解，选择沉淀后可由智能体直接理解图片。',
         route: 'visual_preview',
         title: '架构截图',
         visualRecognition: {
@@ -207,6 +210,38 @@ describe('LinkSupplementExtractor', () => {
           recommendation: null,
           source: 'local',
         },
+      },
+      kind: 'complete',
+    });
+  });
+
+  it('reports invalid visual JSON as a format failure rather than missing vision support', async () => {
+    const invalidOutput: CaptureVisionPort = {
+      preview: () =>
+        Promise.reject(new SelfGrowError('AI_OUTPUT_INVALID', 'The visual preview is invalid.')),
+      recognize: () => Promise.resolve(''),
+    };
+    const base: ContentExtractor = {
+      canHandle: () => true,
+      extract: () => Promise.reject(new Error('Image-only input must not use link extraction.')),
+      id: 'fixture',
+    };
+
+    await expect(
+      new LinkSupplementExtractor(base, invalidOutput).extract(
+        request({
+          url: {
+            normalized: 'selfgrow:text:image-capture',
+            platform: 'unknown',
+            received: 'selfgrow:text:image-capture',
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      content: {
+        body: '原图已保留；视觉模型返回格式未通过校验，选择沉淀后可由智能体直接理解图片。',
+        route: 'visual_preview',
+        visualRecognition: { source: 'local' },
       },
       kind: 'complete',
     });

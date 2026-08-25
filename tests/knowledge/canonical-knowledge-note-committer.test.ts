@@ -24,6 +24,7 @@ describe('CanonicalKnowledgeNoteCommitter', () => {
       recommendation_preference_signals: null,
       recommendation_reason: null,
       recommendation_score: null,
+      recommendation_status: null,
       recognition_source: 'local',
       selfgrow_category: 'Project',
       selfgrow_layer: 'raw',
@@ -86,6 +87,27 @@ describe('CanonicalKnowledgeNoteCommitter', () => {
       recommendation_uninterested_keywords: [],
       wiki_selected: false,
     });
+  });
+
+  it('records a recommendation-only failure without discarding the generated card', async () => {
+    const fixture = await createFixture();
+    const path = await fixture.committer.commit({
+      ...fixture.input,
+      generated: {
+        ...fixture.input.generated,
+        recommendation: null,
+        recommendationIssue: 'invalid_output',
+        recognitionSource: 'ai',
+      },
+    });
+
+    expect(await fixture.frontmatter.read(path)).toMatchObject({
+      recommendation_reason: null,
+      recommendation_score: null,
+      recommendation_status: 'invalid_output',
+      status: 'completed',
+    });
+    expect(await fixture.vault.read(path)).toContain('Grounded summary.');
   });
 
   it('defaults a capture without a folder to Project and records GitHub README diagnostics', async () => {

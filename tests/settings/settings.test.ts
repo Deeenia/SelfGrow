@@ -145,7 +145,7 @@ describe('settings', () => {
     expect(resolver.get({ name: settings.chat.secretName })).toBe(OBVIOUSLY_FAKE_SECRET);
   });
 
-  it('migrates legacy settings and requires both keyword groups before scoring', () => {
+  it('migrates legacy settings and enables keyword scoring with either group', () => {
     const current = createDefaultSettings();
     const {
       preferenceKeywords: _keywords,
@@ -159,6 +159,8 @@ describe('settings', () => {
     expect(loaded.preferenceKeywords).toEqual({ interested: [], uninterested: [] });
     expect(loaded.preferenceProfileEnabled).toBe(true);
     expect(preferenceKeywordsReady(loaded.preferenceKeywords)).toBe(false);
+    expect(preferenceKeywordsReady({ interested: ['RAG'], uninterested: [] })).toBe(true);
+    expect(preferenceKeywordsReady({ interested: [], uninterested: ['营销炒作'] })).toBe(true);
     expect(preferenceKeywordsReady({ interested: ['RAG'], uninterested: ['营销炒作'] })).toBe(true);
   });
 

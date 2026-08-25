@@ -4,16 +4,15 @@ import {
   SelfGrowError,
   type Language,
   type PreferenceRecommendation,
+  type PreferenceRecommendationIssue,
   type RawCategory,
 } from '../domain';
 import type { HTTPTransport, SecretResolver } from '../platform/ports';
 import { z } from '../schema/zod';
 import {
-  applyPreferenceProfile,
-  preferenceKeywordsReady,
+  preferenceProfileHasSignals,
   preferenceProfilePromptValue,
   type EndpointSettings,
-  type PreferenceKeywordSettings,
   type PreferenceProfile,
 } from '../settings';
 import preferenceProtocol from '../../preference-protocol.json';
@@ -46,26 +45,17 @@ export interface VisualPreview {
   category: RawCategory;
   preview: string;
   recommendation: PreferenceRecommendation | null;
+  recommendationIssue?: PreferenceRecommendationIssue | null;
   title: string;
 }
 
-const visualPreviewSchema = z.strictObject({
+const visualPreviewSchema = z.object({
   category: z.enum(RAW_CATEGORIES),
-  matchedInterestedKeywords: z.array(z.string().min(1).max(40)).max(30).optional(),
-  matchedPreferenceSignalIds: z.array(z.string().min(1).max(64)).max(40).optional(),
-  matchedUninterestedKeywords: z.array(z.string().min(1).max(40)).max(30).optional(),
   preview: z
     .string()
     .min(1)
     .max(200)
     .refine((value) => value === value.trim() && !/[\r\n]/.test(value) && isSingleSentence(value)),
-  recommendationReason: z
-    .string()
-    .min(8)
-    .max(120)
-    .refine((value) => value === value.trim() && isSingleSentence(value))
-    .optional(),
-  recommendationScore: z.number().int().min(0).max(100).optional(),
   title: z
     .string()
     .min(1)
@@ -73,11 +63,21 @@ const visualPreviewSchema = z.strictObject({
     .refine((value) => value === value.trim() && !/[\r\n]/.test(value)),
 });
 
+const visualRecommendationSchema = z.object({
+  recommendationReason: z
+    .string()
+    .min(8)
+    .max(120)
+    .refine((value) => value === value.trim() && isSingleSentence(value)),
+  recommendationScore: z.number().int().min(0).max(100),
+});
+
+const reportedMatchesSchema = z.array(z.string().min(1).max(40)).max(40);
+
 export class OpenAIVisionOCRService implements CaptureVisionPort {
   readonly #configuration: () => EndpointSettings;
   readonly #http: HTTPTransport;
   readonly #images: CaptureImagePort;
-  readonly #preferenceKeywords: () => PreferenceKeywordSettings;
   readonly #preferenceProfile: () => Promise<PreferenceProfile | null>;
   readonly #secrets: SecretResolver;
 
@@ -85,15 +85,12 @@ export class OpenAIVisionOCRService implements CaptureVisionPort {
     configuration(): EndpointSettings;
     http: HTTPTransport;
     images: CaptureImagePort;
-    preferenceKeywords?(): PreferenceKeywordSettings;
     preferenceProfile?(): Promise<PreferenceProfile | null>;
     secretResolver: SecretResolver;
   }) {
     this.#configuration = () => dependencies.configuration();
     this.#http = dependencies.http;
     this.#images = dependencies.images;
-    this.#preferenceKeywords = () =>
-      dependencies.preferenceKeywords?.() ?? { interested: [], uninterested: [] };
     this.#preferenceProfile = () => dependencies.preferenceProfile?.() ?? Promise.resolve(null);
     this.#secrets = dependencies.secretResolver;
   }
@@ -120,34 +117,37 @@ export class OpenAIVisionOCRService implements CaptureVisionPort {
           : 'The selected model is not marked as multimodal and cannot generate an image preview.',
       );
     }
-    const keywords = this.#preferenceKeywords();
     const profile = await this.#preferenceProfile();
-    const preference = visualPreferencePrompt(language, keywords, profile);
+    const preference = visualPreferencePrompt(language, profile);
     const output = await this.#complete(
       paths,
       language === 'zh-CN'
         ? `直接理解图片的视觉内容，不要只做 OCR。仅返回 JSON：{"category":"Project|Skill|Experience","title":"可辨识的简短标题","preview":"一句不超过 200 字的高密度描述，说明画面主体、关键信息及用途或意义"${preference.jsonFields}}。category 根据图片可见内容选择：项目、产品或工具界面→Project；明确的 Skill、提示词或能力包→Skill；其他方法、案例、知识或生活记录→Experience。${preference.instructions}不要推测图片外的信息。${preference.context}`
         : `Understand the visual content directly; do not substitute OCR for visual reasoning. Return JSON only: {"category":"Project|Skill|Experience","title":"short recognizable title","preview":"one information-dense sentence under 200 characters describing the subject, key information, and use or significance"${preference.jsonFields}}. Classify visible projects, products, and tool interfaces as Project; explicit Skills, prompts, or capability packs as Skill; and other methods, cases, knowledge, or personal records as Experience. ${preference.instructions}Do not infer beyond the image.${preference.context}`,
+      'json',
     );
-    const parsed = visualPreviewSchema.safeParse(parseJSON(output));
+    const parsedOutput = parseJSON(output);
+    const parsed = visualPreviewSchema.safeParse(parsedOutput);
     if (!parsed.success) {
       throw new SelfGrowError('AI_OUTPUT_INVALID', 'The visual preview is invalid.', {
         issueCount: parsed.error.issues.length,
       });
     }
-    const recommendation = visualRecommendation(parsed.data, keywords, profile);
-    if (!recommendation.valid) {
-      throw new SelfGrowError('AI_OUTPUT_INVALID', 'The visual recommendation is invalid.');
-    }
+    const recommendation = visualRecommendation(parsedOutput, profile);
     return {
       category: parsed.data.category,
       preview: parsed.data.preview,
       recommendation: recommendation.value,
+      recommendationIssue: recommendation.issue,
       title: parsed.data.title,
     };
   }
 
-  async #complete(paths: readonly string[], prompt: string): Promise<string> {
+  async #complete(
+    paths: readonly string[],
+    prompt: string,
+    outputMode: 'json' | 'text' = 'text',
+  ): Promise<string> {
     if (paths.length > MAX_IMAGES) {
       throw new SelfGrowError('EXTRACTION_FAILED', 'A capture may contain at most three images.');
     }
@@ -186,6 +186,9 @@ export class OpenAIVisionOCRService implements CaptureVisionPort {
 
     const response = await this.#http.request({
       body: JSON.stringify({
+        ...(outputMode === 'json'
+          ? { max_tokens: 720, response_format: { type: 'json_object' } }
+          : {}),
         messages: [{ content, role: 'user' }],
         model: configuration.model,
         temperature: 0,
@@ -220,58 +223,34 @@ export class OpenAIVisionOCRService implements CaptureVisionPort {
 }
 
 function visualRecommendation(
-  value: z.infer<typeof visualPreviewSchema>,
-  keywords: PreferenceKeywordSettings,
+  input: unknown,
   profile: PreferenceProfile | null,
-): { valid: boolean; value: PreferenceRecommendation | null } {
-  if (!preferenceKeywordsReady(keywords)) return { valid: true, value: null };
-  if (
-    value.recommendationReason === undefined ||
-    value.recommendationScore === undefined ||
-    value.matchedInterestedKeywords === undefined ||
-    value.matchedUninterestedKeywords === undefined
-  ) {
-    return { valid: false, value: null };
-  }
-  const interested = configuredMatches(keywords.interested, value.matchedInterestedKeywords);
-  const uninterested = configuredMatches(keywords.uninterested, value.matchedUninterestedKeywords);
-  if (interested === null || uninterested === null) return { valid: false, value: null };
-  const appliedProfile =
-    profile === null
-      ? { matchedLabels: [], score: value.recommendationScore }
-      : value.matchedPreferenceSignalIds === undefined
-        ? null
-        : applyPreferenceProfile(
-            value.recommendationScore,
-            value.matchedPreferenceSignalIds,
-            profile,
-          );
-  if (appliedProfile === null) return { valid: false, value: null };
+): { issue: PreferenceRecommendationIssue | null; value: PreferenceRecommendation | null } {
+  if (!recommendationEnabled(profile)) return { issue: null, value: null };
+  const recommendation = visualRecommendationSchema.safeParse(input);
+  if (!recommendation.success) return { issue: 'invalid_output', value: null };
   return {
-    valid: true,
+    issue: null,
     value: {
-      matchedInterestedKeywords: interested,
-      matchedPreferenceSignals: appliedProfile.matchedLabels,
-      matchedUninterestedKeywords: uninterested,
+      matchedInterestedKeywords: [],
+      matchedPreferenceSignals: matchedPreferenceLabels(input, profile),
+      matchedUninterestedKeywords: [],
       profileVersion: profile?.profileVersion ?? null,
       protocolVersion: preferenceProtocol.version,
-      reason: value.recommendationReason,
-      score: appliedProfile.score,
+      reason: recommendation.data.recommendationReason,
+      score: recommendation.data.recommendationScore,
     },
   };
 }
 
-function configuredMatches(
-  configured: readonly string[],
-  reported: readonly string[],
-): string[] | null {
+function configuredMatches(configured: readonly string[], reported: readonly string[]): string[] {
   const byKey = new Map(configured.map((keyword) => [keyword.toLocaleLowerCase(), keyword]));
   const result: string[] = [];
   const seen = new Set<string>();
   for (const keyword of reported) {
     const normalized = keyword.trim().toLocaleLowerCase();
     const canonical = byKey.get(normalized);
-    if (canonical === undefined) return null;
+    if (canonical === undefined) continue;
     if (seen.has(normalized)) continue;
     seen.add(normalized);
     result.push(canonical);
@@ -279,42 +258,51 @@ function configuredMatches(
   return result;
 }
 
+function reportedMatches(input: unknown, field: string): string[] {
+  if (typeof input !== 'object' || input === null) return [];
+  const parsed = reportedMatchesSchema.safeParse((input as Record<string, unknown>)[field]);
+  return parsed.success ? parsed.data : [];
+}
+
+function matchedPreferenceLabels(input: unknown, profile: PreferenceProfile | null): string[] {
+  if (profile === null) return [];
+  const labels = [...profile.positiveSignals, ...profile.negativeSignals].map(
+    (signal) => signal.label,
+  );
+  return configuredMatches(labels, reportedMatches(input, 'matchedPreferenceSignals'));
+}
+
+function recommendationEnabled(profile: PreferenceProfile | null): boolean {
+  return profile !== null && preferenceProfileHasSignals(profile);
+}
+
 function visualPreferencePrompt(
   language: Language,
-  keywords: PreferenceKeywordSettings,
   profile: PreferenceProfile | null,
 ): { context: string; instructions: string; jsonFields: string } {
-  if (!preferenceKeywordsReady(keywords)) {
+  if (profile === null || !preferenceProfileHasSignals(profile)) {
     return {
       context: '',
       instructions:
         language === 'zh-CN'
-          ? '用户尚未完整配置两组偏好关键词，不要返回推荐度或关键词命中字段。'
-          : 'The user has not configured both keyword groups, so omit recommendation and matched-keyword fields. ',
+          ? '用户没有启用个人偏好协议，不要返回推荐度字段。'
+          : 'The user has not enabled a personal preference profile, so omit recommendation fields. ',
       jsonFields: '',
     };
   }
-  const context = JSON.stringify({
-    interested: keywords.interested,
-    uninterested: keywords.uninterested,
-  });
-  const profileContext =
-    profile === null
-      ? ''
-      : `\n<preference_profile>${JSON.stringify(preferenceProfilePromptValue(profile))}</preference_profile>`;
+  const profileContext = `\n<preference_profile>${JSON.stringify(preferenceProfilePromptValue(profile))}</preference_profile>`;
   const profileInstructions =
-    profile === null
-      ? ''
-      : language === 'zh-CN'
-        ? 'matchedPreferenceSignalIds 只能逐字返回被图片语义支持的个人协议信号 ID，无命中则返回空数组；插件会在基础分上应用权重。'
-        : 'matchedPreferenceSignalIds may contain only exact personal-profile signal IDs supported by the image, or an empty array; the plugin applies their weights to the base score. ';
+    language === 'zh-CN'
+      ? '完整阅读正向偏好、负向偏好、权重和说明，将权重直接且仅应用一次；可在 matchedPreferenceSignals 中返回命中的人类可读偏好名称，不得返回或依赖内部 ID。'
+      : 'Read the positive and negative preferences, weights, and descriptions in full and apply each weight directly exactly once. matchedPreferenceSignals may contain human-readable preference names; never return or depend on internal IDs. ';
   return {
-    context: `\n<preference_protocol>${JSON.stringify(preferenceProtocol)}</preference_protocol>\n<preference_keywords>${context}</preference_keywords>${profileContext}`,
+    context: `\n<preference_protocol>${JSON.stringify(preferenceProtocol)}</preference_protocol>${profileContext}`,
     instructions:
       language === 'zh-CN'
-        ? `recommendationScore 只能依据图片可见内容、通用规则与用户关键词给出 0-100 基础整数；recommendationReason 用一句话说明；两个关键词 matched 数组只能逐字返回已配置且被图片语义命中的关键词，无命中时返回空数组。${profileInstructions}`
-        : `recommendationScore must be a 0-100 integer base score based only on visible content, the generic protocol, and configured keywords; recommendationReason must be one sentence; keyword match arrays may contain only exact configured keyword strings supported by the image, or be empty. ${profileInstructions}`,
-    jsonFields: `,"recommendationScore":0,"recommendationReason":"one advisory reason","matchedInterestedKeywords":["exact configured keyword"],"matchedUninterestedKeywords":["exact configured keyword"]${profile === null ? '' : ',"matchedPreferenceSignalIds":["exact profile signal id"]'}`,
+        ? `recommendationScore 必须综合图片可见内容、通用规则和完整个人偏好协议直接给出 0-100 整数；recommendationReason 用一句自然语言说明。${profileInstructions}`
+        : `recommendationScore must be a direct 0-100 integer based on visible content, the generic protocol, and the complete personal preference profile; recommendationReason must be one sentence. ${profileInstructions}`,
+    jsonFields:
+      ',"recommendationScore":0,"recommendationReason":"one advisory reason","matchedPreferenceSignals":["human-readable preference name"]',
   };
 }
 
@@ -329,10 +317,17 @@ function chatEndpoint(baseURL: string): string {
 }
 
 function parseJSON(value: string): unknown {
+  const trimmed = value.trim();
   try {
-    return JSON.parse(value) as unknown;
+    return JSON.parse(trimmed) as unknown;
   } catch {
-    return null;
+    const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(trimmed);
+    if (fenced === null) return null;
+    try {
+      return JSON.parse(fenced[1] ?? '') as unknown;
+    } catch {
+      return null;
+    }
   }
 }
 

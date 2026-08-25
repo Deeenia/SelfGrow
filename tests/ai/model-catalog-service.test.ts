@@ -105,13 +105,50 @@ describe('ModelCatalogService', () => {
 
   it('uses compact current catalogs for DeepSeek and Qwen', () => {
     expect(knownModelCatalog('https://api.deepseek.com', 'zh-CN').map((model) => model.id)).toEqual(
-      ['deepseek-v4-flash', 'deepseek-v4-pro'],
+      ['deepseek-v4-flash', 'deepseek-v4-flash-vision-exp', 'deepseek-v4-pro'],
     );
     expect(
       knownModelCatalog('https://dashscope.aliyuncs.com/compatible-mode/v1', 'zh-CN').map(
         (model) => model.id,
       ),
     ).toEqual(['qwen3.8-max', 'qwen3.7-plus', 'qwen3.7-flash']);
+  });
+
+  it('keeps the DeepSeek experimental vision model available when the provider list lags', async () => {
+    const http = new FixtureHTTPTransport([
+      {
+        method: 'GET',
+        outcome: {
+          kind: 'response',
+          response: {
+            body: JSON.stringify({
+              data: [
+                { id: 'deepseek-v4-pro' },
+                { id: 'retired-deepseek-model' },
+                { id: 'deepseek-v4-flash' },
+              ],
+            }),
+            headers: {},
+            status: 200,
+          },
+        },
+        url: 'https://api.deepseek.com/models',
+      },
+    ]);
+    const service = new ModelCatalogService({
+      configuration: () =>
+        configuration({ baseURL: 'https://api.deepseek.com', preset: 'deepseek' }),
+      http,
+      secretResolver: new FakeSecretResolver({ chat: OBVIOUSLY_FAKE_SECRET }),
+    });
+
+    const models = await service.list('zh-CN');
+    expect(models.map((model) => model.id)).toEqual([
+      'deepseek-v4-flash',
+      'deepseek-v4-flash-vision-exp',
+      'deepseek-v4-pro',
+    ]);
+    expect(models[1]?.description).toBe('多模态 · 视觉实验模型');
   });
 
   it('reports known multimodal models', () => {

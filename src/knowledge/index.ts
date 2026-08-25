@@ -4,6 +4,7 @@ export * from './knowledge-note';
 export * from './raw-card';
 export * from './raw-categories';
 export * from './raw-evidence-generator';
+export * from './recommendation-degree';
 export * from './raw-scan';
 export * from './url-note-index';
 export * from './wiki-schema';

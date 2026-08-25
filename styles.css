@@ -704,6 +704,10 @@
   white-space: nowrap;
 }
 
+.selfgrow-review-recommendation.is-unavailable {
+  color: var(--text-faint);
+}
+
 .selfgrow-review-keyword-match {
   border: 1px solid var(--background-modifier-border);
   border-radius: var(--radius-s);

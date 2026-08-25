@@ -9,8 +9,8 @@ The file is one UTF-8 JSON object with these exact keys:
 - `schemaVersion`: integer `1`.
 - `profileVersion`: a new non-empty version string for every approved update.
 - `updatedAt`: an ISO timestamp.
-- `positiveSignals`: at most 20 approved signals with lowercase kebab-case `id`, human `label`, concise `description`, and integer `weight` from 1 to 20.
-- `negativeSignals`: at most 20 signals with the same shape and an integer `weight` from -20 to -1.
+- `positiveSignals`: at most 50 approved signals with lowercase kebab-case `id`, human `label`, concise `description`, and integer `weight` from 1 to 20.
+- `negativeSignals`: at most 50 signals with the same shape and an integer `weight` from -20 to -1.
 - `sources`: at most 30 authorized project-summary references containing only a display `project` name and lowercase SHA-256 `summaryHash`.
 
 Signal IDs must be unique across both groups. Sources prove which approved summaries were considered without storing their paths or contents.
@@ -37,6 +37,6 @@ The Obsidian plugin must not read Codex history or external repositories. The Sk
 3. Build a temporary JSON plan matching the required shape. Do not place the plan in the Vault.
 4. Run `validate-preference-profile`, then present the complete returned profile or focused diff, its evidence basis, destination, and any removed signal.
 5. Obtain explicit approval before running `apply-preference-profile --approved`.
-6. Preserve valid unrelated signals, use a new `profileVersion`, delete the temporary plan, and report that only future captures receive the new version. Never rewrite historical Raw scores merely because the profile changed.
+6. Preserve valid unrelated signals, including every plugin-managed `manual-interest-*` and `manual-uninterest-*` signal exactly, use a new `profileVersion`, delete the temporary plan, and report that only future captures receive the new version. Never rewrite historical Raw scores merely because the profile changed.
 
-The plugin's simple AI reports the base keyword score, one grounded reason, and exact matched profile signal IDs. The plugin validates those IDs and applies their declared weights with a `0–100` clamp. It must not auto-select, reject, order, delete, or distill Raw material. Missing or invalid profiles fall back to keyword-only scoring.
+For each new capture, the plugin sends the complete reviewed positive and negative preference labels, descriptions, and weights—but not internal IDs or source records—to its configured AI. The AI directly reports a `0–100` score and one grounded natural-language reason after applying the profile weights exactly once. Optional matched preferences use human-readable labels and never gate score validity. The personal profile is the only personal scoring input. Saving neutral topic bubbles creates or replaces only the plugin-managed manual signals inside that profile; it does not create a second keyword scoring system. Either initialization order is supported: topic selection may create a source-free base profile before an Agent adds reviewed project-derived signals, or an Agent may create the base profile before the topic picker adds manual signals. Recommendation errors leave the title, category, preview, and capture intact and store only a friendly unscored status. The plugin must not auto-select, reject, order, delete, or distill Raw material. Missing, disabled, invalid, or empty profiles disable scoring, while profile updates affect only future captures.

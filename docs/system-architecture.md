@@ -83,6 +83,8 @@ GitHub repository URLs are routed to a dedicated extractor before the generic HT
 
 Complete extracted article bodies and transcripts are written into Raw `原始材料` as structured Markdown (headings demoted, fences/tables/lists/links/images preserved — never a single blockquote or collapsed paragraph). URL-stripped share residue and OCR remain fallback input and are not written into `我的笔记`.
 
+Recommendation uses one sibling Vault-local personal profile. The plugin topic picker creates or replaces only reserved manual positive/negative signals in that profile, while the user-invoked `selfgrow-wiki` Skill creates or updates reviewed project-derived signals and preserves manual signals. Either component may initialize the file. Text/link and pure-image recognition receive only the complete active profile, never a second keyword-scoring payload; profile versions affect only future captures.
+
 ## 6. Raw Identity and Lifecycle
 
 `Raw/` stays flat under the three category folders. URL and SelfGrow-ID indexes remain scoped for capture deduplication only.

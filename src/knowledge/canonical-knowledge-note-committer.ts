@@ -122,6 +122,7 @@ export class CanonicalKnowledgeNoteCommitter implements KnowledgeNoteCommitPort 
       preference_protocol_version: input.generated.recommendation?.protocolVersion ?? null,
       recommendation_reason: input.generated.recommendation?.reason ?? null,
       recommendation_score: input.generated.recommendation?.score ?? null,
+      recommendation_status: input.generated.recommendationIssue ?? null,
       recommendation_uninterested_keywords:
         input.generated.recommendation?.matchedUninterestedKeywords ?? null,
       recognition_source: input.generated.recognitionSource,

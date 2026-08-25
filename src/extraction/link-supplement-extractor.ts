@@ -1,3 +1,4 @@
+import { isSelfGrowError } from '../domain';
 import type { ContentExtractor, ExtractionOutcome, ExtractionRequest } from './types';
 import type { CaptureVisionPort } from './vision-ocr-service';
 
@@ -39,14 +40,12 @@ export class LinkSupplementExtractor implements ContentExtractor {
         visualRecognition = {
           category: preview.category,
           recommendation: preview.recommendation,
+          recommendationIssue: preview.recommendationIssue,
           source: 'ai' as const,
         };
-      } catch {
+      } catch (error) {
         preview = {
-          preview:
-            request.language === 'zh-CN'
-              ? '原图已保留；当前模型无法生成视觉描述，选择沉淀后可由智能体直接理解图片。'
-              : 'The original image is retained; the current model cannot describe it, so an agent can inspect it after selection.',
+          preview: visualFallbackPreview(error, request.language),
           title:
             request.suggestedTitle?.trim() ||
             (request.language === 'zh-CN' ? '图片记录' : 'Image capture'),
@@ -54,6 +53,7 @@ export class LinkSupplementExtractor implements ContentExtractor {
         visualRecognition = {
           category: 'Experience' as const,
           recommendation: null,
+          recommendationIssue: null,
           source: 'local' as const,
         };
       }
@@ -100,6 +100,22 @@ export class LinkSupplementExtractor implements ContentExtractor {
     }
     return fallback(request, userMaterial);
   }
+}
+
+function visualFallbackPreview(error: unknown, language: ExtractionRequest['language']): string {
+  if (isSelfGrowError(error) && error.code === 'AI_PROTOCOL_UNSUPPORTED') {
+    return language === 'zh-CN'
+      ? '原图已保留；当前模型未配置为支持图片理解，选择沉淀后可由智能体直接理解图片。'
+      : 'The original image is retained; the current model is not configured for image understanding, so an agent can inspect it after selection.';
+  }
+  if (isSelfGrowError(error) && error.code === 'AI_OUTPUT_INVALID') {
+    return language === 'zh-CN'
+      ? '原图已保留；视觉模型返回格式未通过校验，选择沉淀后可由智能体直接理解图片。'
+      : 'The original image is retained; the visual model response failed validation, so an agent can inspect it after selection.';
+  }
+  return language === 'zh-CN'
+    ? '原图已保留；本次视觉识别调用未成功，选择沉淀后可由智能体直接理解图片。'
+    : 'The original image is retained; this visual recognition request did not succeed, so an agent can inspect it after selection.';
 }
 
 function fallback(request: ExtractionRequest, material: string): ExtractionOutcome {

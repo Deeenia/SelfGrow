@@ -64,12 +64,15 @@ export interface PreferenceRecommendation {
   score: number;
 }
 
+export type PreferenceRecommendationIssue = 'invalid_output';
+
 export interface GeneratedKnowledge {
   category: RawCategory;
   coreKnowledge: readonly CoreKnowledgeItem[];
   githubQueries: readonly string[];
   outputLanguage: Language;
   recommendation: PreferenceRecommendation | null;
+  recommendationIssue?: PreferenceRecommendationIssue | null;
   recognitionSource: 'ai' | 'local';
   sourceLanguage: string;
   summaryMarkdown: string;

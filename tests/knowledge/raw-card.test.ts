@@ -151,6 +151,23 @@ describe('Task-046 Raw schema and selection state', () => {
     });
   });
 
+  it('reads a friendly recommendation issue independently from card validity', async () => {
+    const fixture = await createFixture();
+    await fixture.service.migrateAll();
+    await fixture.frontmatter.process(fixture.path, (current) => ({
+      ...current,
+      recommendation_reason: null,
+      recommendation_score: null,
+      recommendation_status: 'invalid_output',
+    }));
+
+    await expect(fixture.service.read(fixture.path)).resolves.toMatchObject({
+      recommendation: null,
+      recommendationIssue: 'invalid_output',
+      title: 'Test',
+    });
+  });
+
   it('deletes Raw only after confirmation and removes only unreferenced attachments', async () => {
     const deleted: string[] = [];
     const fixture = await createFixture((path) => {

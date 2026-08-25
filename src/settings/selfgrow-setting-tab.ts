@@ -25,6 +25,7 @@ export interface SelfGrowSettingsHost extends Plugin {
   getPreferenceProfileStatus(): Promise<PreferenceProfileStatus>;
   listChatModels(): Promise<ModelCatalogEntry[]>;
   openPreferenceProfile(): Promise<void>;
+  savePreferenceKeywords(keywords: PreferenceKeywordSettings): Promise<void>;
   testChatConnection(): Promise<void>;
   testExtractionConnection(): Promise<void>;
   updateSelfGrowSettings(update: (current: SelfGrowSettings) => SelfGrowSettings): Promise<void>;
@@ -53,19 +54,20 @@ const COPY = {
     modelsLoaded: (count: number) => `Loaded ${count} models.`,
     modelProvider: 'Model provider',
     preferenceDescription:
-      'Pick preset topics with one tap. Custom keywords are available only when needed.',
+      'Selected topics update the same personal preference profile used for every score.',
     preferenceHeading: 'Recommendation preferences',
     preferenceOpen: 'Choose preferences',
     preferenceReady: (interested: number, uninterested: number) =>
       `${interested} interested · ${uninterested} not interested`,
-    preferenceRequired: 'Choose at least one item in each group to enable recommendation scores.',
-    preferenceProfile: 'Deep preference profile',
+    preferenceRequired:
+      'Topics are optional. Saving them creates or updates the personal preference profile.',
+    preferenceProfile: 'Personal preference profile',
     preferenceProfileDescription: (status: PreferenceProfileStatus) =>
       status.state === 'ready'
         ? `Profile ${status.profileVersion} · ${status.path}`
         : status.state === 'invalid'
           ? `The profile is invalid and will be ignored: ${status.path}`
-          : `No profile yet. The SelfGrow agent Skill can create it at ${status.path}. Keyword scoring remains active.`,
+          : `No profile yet. Saving topics or using the SelfGrow agent Skill can create it at ${status.path}.`,
     preferenceProfileLoading: 'Checking the Vault preference profile…',
     preferenceProfileOpen: 'View profile',
     selectProvider: 'Select a model provider',
@@ -105,19 +107,19 @@ const COPY = {
     modelRefresh: '刷新模型',
     modelsLoaded: (count: number) => `已加载 ${count} 个模型。`,
     modelProvider: '模型服务商',
-    preferenceDescription: '点击预设主题即可选择，只有需要时才手动添加自定义关键词。',
+    preferenceDescription: '所选主题会更新同一份个人偏好协议；只有需要时才手动添加自定义关键词。',
     preferenceHeading: '推荐偏好',
     preferenceOpen: '选择推荐偏好',
     preferenceReady: (interested: number, uninterested: number) =>
       `感兴趣 ${interested} 项 · 不感兴趣 ${uninterested} 项`,
-    preferenceRequired: '请至少在两组中各选择一项，之后才会生成推荐度。',
-    preferenceProfile: '深层偏好协议',
+    preferenceRequired: '主题可选；保存后会创建或更新个人偏好协议。',
+    preferenceProfile: '个人偏好协议',
     preferenceProfileDescription: (status: PreferenceProfileStatus) =>
       status.state === 'ready'
         ? `已读取版本 ${status.profileVersion} · ${status.path}`
         : status.state === 'invalid'
           ? `协议格式无效，当前会忽略：${status.path}`
-          : `尚未生成；SelfGrow Agent Skill 可审核后写入 ${status.path}，关键词评分仍会正常工作。`,
+          : `尚未生成；保存主题或使用 SelfGrow Agent Skill 都可在 ${status.path} 创建。`,
     preferenceProfileLoading: '正在检查 Vault 内的偏好协议…',
     preferenceProfileOpen: '查看协议',
     selectProvider: '请选择模型服务商',
@@ -208,7 +210,7 @@ export class SelfGrowSettingTab extends PluginSettingTab {
       .setDesc(copy.preferenceDescription)
       .setHeading();
     const ready =
-      settings.preferenceKeywords.interested.length > 0 &&
+      settings.preferenceKeywords.interested.length > 0 ||
       settings.preferenceKeywords.uninterested.length > 0;
     new Setting(this.#container())
       .setName(copy.preferenceOpen)
@@ -227,10 +229,7 @@ export class SelfGrowSettingTab extends PluginSettingTab {
             settings.language,
             settings.preferenceKeywords,
             async (keywords) => {
-              await this.#update((current) => ({
-                ...current,
-                preferenceKeywords: keywords,
-              }));
+              await this.#host.savePreferenceKeywords(keywords);
               this.update();
             },
           ).open();
@@ -637,12 +636,13 @@ const PREFERENCE_MODAL_COPY = {
     interested: 'What are you interested in?',
     interestedHint: 'Pick the topics you want to see more often.',
     keywordLimit: 'Each group supports up to 30 keywords.',
-    needBoth: 'Choose at least one keyword in each group.',
+    needBoth:
+      'Topics are optional; an existing personal profile remains active when this is empty.',
     refresh: 'New batch',
     save: 'Save preferences',
     saveFailed: 'Could not save preferences. Please try again.',
     subtitle:
-      'Both groups use the same neutral topics. Your choices decide what is ranked up or down.',
+      'Both groups use neutral topics. Saving updates the same versioned personal preference profile.',
     title: 'Choose recommendation preferences',
     uninterested: 'What are you not interested in?',
     uninterestedHint: 'Pick the topics you want to see less often.',
@@ -655,11 +655,11 @@ const PREFERENCE_MODAL_COPY = {
     interested: '你对什么感兴趣？',
     interestedHint: '点击你希望更多看到的主题。',
     keywordLimit: '每组最多保留 30 个关键词。',
-    needBoth: '请在两组中至少各选择一个关键词。',
+    needBoth: '主题不是必选项；清空后保存会保留协议中由 Agent 生成的其他偏好。',
     refresh: '换一批',
     save: '保存偏好',
     saveFailed: '偏好保存失败，请重试。',
-    subtitle: '两栏使用同一套中性主题；由你的选择决定提高或降低推荐度。',
+    subtitle: '两栏使用同一套中性主题；保存后会更新同一份版本化个人偏好协议。',
     title: '选择推荐偏好',
     uninterested: '你对什么不感兴趣？',
     uninterestedHint: '点击你希望减少看到的主题。',
@@ -718,7 +718,7 @@ class PreferenceKeywordModal extends Modal {
     const status = footer.createSpan({
       cls: 'selfgrow-preference-status',
       text:
-        this.#selected.interested.length > 0 && this.#selected.uninterested.length > 0
+        this.#selected.interested.length > 0 || this.#selected.uninterested.length > 0
           ? ''
           : copy.needBoth,
     });
@@ -729,10 +729,7 @@ class PreferenceKeywordModal extends Modal {
       cls: 'mod-cta',
       text: copy.save,
     });
-    save.disabled =
-      this.#selected.interested.length === 0 || this.#selected.uninterested.length === 0;
     save.addEventListener('click', () => {
-      if (save.disabled) return;
       save.disabled = true;
       status.setText('');
       void this.#onSave({
