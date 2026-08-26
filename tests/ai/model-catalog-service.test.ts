@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   isKnownMultimodalModel,
+  modelImageInputEnabled,
   knownModelCatalog,
   ModelCatalogService,
   modelsEndpoint,
@@ -156,8 +157,13 @@ describe('ModelCatalogService', () => {
       knownModelCatalog('https://api.moonshot.cn/v1', 'zh-CN').map((model) => model.id),
     ).toContain('kimi-k3');
     expect(isKnownMultimodalModel('kimi-k3')).toBe(true);
+    expect(isKnownMultimodalModel(' KIMI-K3 ')).toBe(true);
     expect(isKnownMultimodalModel('deepseek-v4-flash')).toBe(false);
     expect(isKnownMultimodalModel('deepseek-v4-flash-vision-exp')).toBe(true);
+    expect(isKnownMultimodalModel(' DeepSeek-V4-Flash-Vision-Exp ')).toBe(true);
+    expect(modelImageInputEnabled('deepseek-v4-flash-vision-exp', false)).toBe(true);
+    expect(modelImageInputEnabled('custom-vision-model', true)).toBe(true);
+    expect(modelImageInputEnabled('deepseek-v4-flash', false)).toBe(false);
   });
 
   it('keeps recommended Kimi models and removes unknown or retired entries', async () => {

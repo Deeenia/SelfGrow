@@ -1,3 +1,4 @@
+import { modelImageInputEnabled } from '../ai/model-catalog-service';
 import { LANGUAGES } from '../domain';
 import { SelfGrowError } from '../domain/errors';
 import { z } from '../schema/zod';
@@ -126,22 +127,25 @@ export function loadSettings(input: unknown): SelfGrowSettings {
     });
   }
 
-  return {
+  return normalizeKnownMultimodalSettings({
     ...result.data,
     chat: invalidateStaleConnectionTest(result.data.chat),
     extraction: invalidateStaleExtractionTest(result.data.extraction),
-  };
+  });
 }
 
 export function serializeSettings(settings: SelfGrowSettings): SelfGrowSettings {
-  return selfGrowSettingsSchema.parse(settings);
+  return normalizeKnownMultimodalSettings(selfGrowSettingsSchema.parse(settings));
 }
 
 export function updateChat(
   settings: SelfGrowSettings,
   patch: Partial<EndpointConfiguration>,
 ): SelfGrowSettings {
-  return { ...settings, chat: updateEndpoint(settings.chat, patch) };
+  return {
+    ...settings,
+    chat: normalizeKnownMultimodalEndpoint(updateEndpoint(settings.chat, patch)),
+  };
 }
 
 export function changeChatSecret(settings: SelfGrowSettings, secretName: string): SelfGrowSettings {
@@ -253,7 +257,7 @@ export function chatSecretProfileFor(endpoint: EndpointSettings): ChatSecretProf
   return {
     baseURL: endpoint.baseURL,
     model: endpoint.model,
-    multimodal: endpoint.multimodal,
+    multimodal: modelImageInputEnabled(endpoint.model, endpoint.multimodal),
     preset: endpoint.preset,
   };
 }
@@ -286,6 +290,7 @@ export function applyChatSecretProfile(
       ...settings.chat,
       ...profile,
       connectionTest: null,
+      multimodal: modelImageInputEnabled(profile.model, profile.multimodal),
       secretName: name,
     },
   };
@@ -349,6 +354,29 @@ function invalidateStaleConnectionTest(endpoint: EndpointSettings): EndpointSett
     return endpoint;
   }
   return { ...endpoint, connectionTest: null };
+}
+
+function normalizeKnownMultimodalEndpoint(endpoint: EndpointSettings): EndpointSettings {
+  if (!modelImageInputEnabled(endpoint.model, endpoint.multimodal) || endpoint.multimodal) {
+    return endpoint;
+  }
+  return { ...endpoint, connectionTest: null, multimodal: true };
+}
+
+function normalizeKnownMultimodalSettings(settings: SelfGrowSettings): SelfGrowSettings {
+  return {
+    ...settings,
+    chat: normalizeKnownMultimodalEndpoint(settings.chat),
+    chatSecretProfiles: Object.fromEntries(
+      Object.entries(settings.chatSecretProfiles).map(([name, profile]) => [
+        name,
+        {
+          ...profile,
+          multimodal: modelImageInputEnabled(profile.model, profile.multimodal),
+        },
+      ]),
+    ),
+  };
 }
 
 function invalidateStaleExtractionTest(

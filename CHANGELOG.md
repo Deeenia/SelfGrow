@@ -101,6 +101,8 @@ D:\ai_test\test\test\.obsidian\plugins\selfgrow\
 - 修复纯图片启用关键词后偶发整体降级的问题：视觉卡片请求显式启用 JSON 输出并预留 720 tokens，同时兼容模型返回的完整 `json` 代码块；格式校验失败、调用失败和模型未配置视觉能力现在显示不同的诚实提示，不再把协议或格式错误误报为“模型无法理解图片”。
 - 推荐偏好统一为一份 Vault 本地个人协议：保存主题气泡会创建或替换协议内的保留手动信号，Agent 更新保留这些信号，插件更新保留 Agent 信号和来源；支持“主题先、Agent 后”与“Agent 先、主题后”两种顺序，不再向链接或纯图片请求发送独立关键词评分结构。
 - 文本/链接识别在完整结构无效时只修复核心卡片并省略推荐字段；再次无效时使用确定性本地卡片，不再因推荐协议复杂度让收集失败。协议版本更新为 `unified-preference-profile-v4`。
+- 视觉输出解析兼容服务商在 JSON 前后附加说明、Markdown 包裹、文本内容数组、中文或大小写分类值及多句预览；自然语言视觉描述可在本地整理为合规卡片，核心字段仍无效时仅使用第一次响应文本进行一次简化修复，不会重复上传原图或让修复调用失败覆盖第一次结果。
+- 已知视觉模型的图片能力会在加载、保存及密钥配置恢复时统一规范化，模型 ID 比较兼容大小写与首尾空白；设置页对已知视觉模型固定显示已开启的图片理解能力，自定义模型继续使用手动开关。Kimi 视觉调用使用 `max_completion_tokens` 并省略其不兼容的通用采样/JSON 强制参数，Qwen 与 DeepSeek 保留各自的 OpenAI 兼容参数。
 
 ### Chat connection test
 
@@ -144,6 +146,7 @@ D:\ai_test\test\test\.obsidian\plugins\selfgrow\
   - Python guard `self-test` 通过。
 - 深层偏好协议构建通过：生产包 `main.js` 567,452 bytes（gzip 139,015 bytes），低于 750 KiB 预算且无 Node/Electron 移动端禁用导入。
 - 最新 `main.js`、`manifest.json`、`styles.css` 已安装到 `D:\ai_test\test_remote\test_remote\.obsidian\plugins\selfgrow\`，三者与源码 SHA-256 一致；安装前用户已更新的 `data.json` 保持 SHA-256 `A58634CF2DB5B6C2CEAA1FA65F95533D267787F0F8F9A89B81C154F65CE10B66` 未变。
+- 纯图片视觉输出与服务商状态修复通过完整 `npm run check`：38 个测试文件、318 个测试全部通过，生产包为 574,575 bytes（gzip 141,591 bytes）；已安装 `main.js` SHA-256 `74D7A3B5EFC08C83A850A7FB06E1227497C7E8742AFFA9B8C268C89EC256E1E7` 到本地测试 Vault，安装过程中当前 `data.json` 保持不变。
 
 ### Git status
 

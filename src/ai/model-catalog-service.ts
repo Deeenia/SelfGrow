@@ -169,7 +169,11 @@ export function knownModelCatalog(baseURL: string, language: Language): ModelCat
 }
 
 export function isKnownMultimodalModel(id: string): boolean {
-  return MODEL_PROFILES[id]?.multimodal === true;
+  return MODEL_PROFILES[id.trim().toLocaleLowerCase()]?.multimodal === true;
+}
+
+export function modelImageInputEnabled(id: string, configured: boolean): boolean {
+  return configured || isKnownMultimodalModel(id);
 }
 
 type ModelProviderFamily = 'custom' | 'deepseek' | 'kimi' | 'openai' | 'qwen';

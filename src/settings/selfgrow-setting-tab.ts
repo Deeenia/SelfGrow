@@ -10,7 +10,7 @@ import {
   type SettingDefinitionItem,
 } from 'obsidian';
 import { isSelfGrowError, type Language } from '../domain';
-import { isKnownMultimodalModel, type ModelCatalogEntry } from '../ai';
+import { isKnownMultimodalModel, modelImageInputEnabled, type ModelCatalogEntry } from '../ai';
 import {
   changeChatSecret,
   chatModelLoadConfigurationReady,
@@ -300,11 +300,15 @@ export class SelfGrowSettingTab extends PluginSettingTab {
     new Setting(this.#container())
       .setName(copy.modelMultimodal)
       .setDesc(copy.modelMultimodalDescription)
-      .addToggle((toggle) =>
-        toggle.setValue(endpoint.multimodal).onChange((value) => {
-          void this.#updateEndpoint(key, { multimodal: value });
-        }),
-      );
+      .addToggle((toggle) => {
+        const knownMultimodal = isKnownMultimodalModel(endpoint.model);
+        toggle
+          .setValue(modelImageInputEnabled(endpoint.model, endpoint.multimodal))
+          .setDisabled(knownMultimodal)
+          .onChange((value) => {
+            void this.#updateEndpoint(key, { multimodal: value });
+          });
+      });
     new Setting(this.#container()).setName(copy.test).addButton((button) =>
       button.setButtonText(copy.test).onClick(() => {
         void this.#test(() => this.#host.testChatConnection());

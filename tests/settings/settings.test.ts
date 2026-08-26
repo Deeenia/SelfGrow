@@ -164,6 +164,30 @@ describe('settings', () => {
     expect(preferenceKeywordsReady({ interested: ['RAG'], uninterested: ['营销炒作'] })).toBe(true);
   });
 
+  it('repairs stale disabled flags for known visual models on load and save', () => {
+    const stale = {
+      ...createDefaultSettings(),
+      chat: endpoint({
+        model: ' KIMI-K3 ',
+        multimodal: false,
+        preset: 'kimi',
+      }),
+      chatSecretProfiles: {
+        vision: {
+          baseURL: 'https://api.deepseek.com',
+          model: 'DeepSeek-V4-Flash-Vision-Exp',
+          multimodal: false,
+          preset: 'deepseek' as const,
+        },
+      },
+    };
+
+    expect(loadSettings(stale).chat.multimodal).toBe(true);
+    expect(loadSettings(stale).chatSecretProfiles.vision?.multimodal).toBe(true);
+    expect(serializeSettings(stale).chat.multimodal).toBe(true);
+    expect(serializeSettings(stale).chatSecretProfiles.vision?.multimodal).toBe(true);
+  });
+
   it('remembers and restores provider profiles per SecretStorage key', () => {
     const settings = createDefaultSettings();
     const kimi = rememberChatSecretProfile(
@@ -173,7 +197,7 @@ describe('settings', () => {
           baseURL: 'https://api.moonshot.cn/v1',
           connectionTest: null,
           model: 'kimi-k3',
-          multimodal: true,
+          multimodal: false,
           preset: 'kimi',
           secretName: 'kimi-key',
         },
@@ -195,6 +219,7 @@ describe('settings', () => {
     expect(restored.chat).toMatchObject({
       baseURL: 'https://api.moonshot.cn/v1',
       model: 'kimi-k3',
+      multimodal: true,
       preset: 'kimi',
       secretName: 'kimi-key',
     });

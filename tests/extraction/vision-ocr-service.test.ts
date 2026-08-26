@@ -71,7 +71,7 @@ describe('OpenAIVisionOCRService', () => {
         baseURL: 'https://ai.example/v1',
         connectionTest: null,
         model: 'kimi-k3',
-        multimodal: true,
+        multimodal: false,
         preset: 'kimi',
         secretName: 'Chat Secret',
       }),
@@ -90,6 +90,177 @@ describe('OpenAIVisionOCRService', () => {
       title: '服务队列架构图',
     });
     expect(http.calls[0]?.body).toContain('不要只做 OCR');
+    expect(JSON.parse(http.calls[0]?.body ?? '{}')).toMatchObject({
+      max_completion_tokens: 720,
+      model: 'kimi-k3',
+      reasoning_effort: 'low',
+    });
+    expect(JSON.parse(http.calls[0]?.body ?? '{}')).not.toHaveProperty('max_tokens');
+    expect(JSON.parse(http.calls[0]?.body ?? '{}')).not.toHaveProperty('response_format');
+    expect(JSON.parse(http.calls[0]?.body ?? '{}')).not.toHaveProperty('temperature');
+  });
+
+  it('normalizes common provider wrappers without discarding valid visual understanding', async () => {
+    const http = new FixtureHTTPTransport([
+      {
+        method: 'POST',
+        outcome: {
+          kind: 'response',
+          response: {
+            body: JSON.stringify({
+              choices: [
+                {
+                  message: {
+                    content: [
+                      {
+                        text: `识别结果如下：\n${JSON.stringify({
+                          category: '项目',
+                          preview:
+                            '图片展示了一篇讨论森林火灾与地表升温关系的 Nature 论文。页面包含摘要、方法和数据入口。',
+                          title: '# 森林火灾与地表升温',
+                        })}\n请查收。`,
+                        type: 'output_text',
+                      },
+                    ],
+                  },
+                },
+              ],
+            }),
+            headers: {},
+            status: 200,
+          },
+        },
+        url: 'https://ai.example/v1/chat/completions',
+      },
+    ]);
+    const service = new OpenAIVisionOCRService({
+      configuration: () => ({
+        baseURL: 'https://ai.example/v1',
+        connectionTest: null,
+        model: 'deepseek-v4-flash-vision-exp',
+        multimodal: true,
+        preset: 'deepseek',
+        secretName: 'Chat Secret',
+      }),
+      http,
+      images: {
+        read: () => Promise.resolve({ bytes: new Uint8Array([1, 2, 3]), mimeType: 'image/png' }),
+      },
+      secretResolver: new FakeSecretResolver({ 'Chat Secret': 'fixture-secret' }),
+    });
+
+    await expect(service.preview(['capture.png'], 'zh-CN')).resolves.toEqual({
+      category: 'Project',
+      preview:
+        '图片展示了一篇讨论森林火灾与地表升温关系的 Nature 论文；页面包含摘要、方法和数据入口。',
+      recommendation: null,
+      recommendationIssue: null,
+      title: '森林火灾与地表升温',
+    });
+    expect(http.calls).toHaveLength(1);
+  });
+
+  it('retries once with a core-only visual schema when the first response has no valid card', async () => {
+    const response = (content: string) => ({
+      body: JSON.stringify({ choices: [{ message: { content } }] }),
+      headers: {},
+      status: 200,
+    });
+    const http = new FixtureHTTPTransport([
+      {
+        method: 'POST',
+        outcome: [
+          { kind: 'response', response: response('图片内容很清楚，但无法按要求输出。') },
+          {
+            kind: 'response',
+            response: response(
+              JSON.stringify({
+                category: 'Experience',
+                preview: '图片展示了论文标题、摘要、作者信息与正文导航。',
+                title: '森林火灾与地表升温论文',
+              }),
+            ),
+          },
+        ],
+        url: 'https://ai.example/v1/chat/completions',
+      },
+    ]);
+    const service = new OpenAIVisionOCRService({
+      configuration: () => ({
+        baseURL: 'https://ai.example/v1',
+        connectionTest: null,
+        model: 'deepseek-v4-flash-vision-exp',
+        multimodal: true,
+        preset: 'deepseek',
+        secretName: 'Chat Secret',
+      }),
+      http,
+      images: {
+        read: () => Promise.resolve({ bytes: new Uint8Array([1, 2, 3]), mimeType: 'image/png' }),
+      },
+      secretResolver: new FakeSecretResolver({ 'Chat Secret': 'fixture-secret' }),
+    });
+
+    await expect(service.preview(['capture.png'], 'zh-CN')).resolves.toMatchObject({
+      category: 'Experience',
+      preview: '图片展示了论文标题、摘要、作者信息与正文导航。',
+      recommendation: null,
+      title: '森林火灾与地表升温论文',
+    });
+    expect(http.calls).toHaveLength(2);
+    expect(http.calls[1]?.body).toContain('不要重新分析图片');
+    expect(http.calls[1]?.body).not.toContain('data:image/png');
+  });
+
+  it('keeps a useful natural-language visual description without uploading the image again', async () => {
+    const http = new FixtureHTTPTransport([
+      {
+        method: 'POST',
+        outcome: {
+          kind: 'response',
+          response: {
+            body: JSON.stringify({
+              choices: [
+                {
+                  message: {
+                    content:
+                      '图片展示了一篇研究森林火灾规模与火后地表升温关系的 Nature 论文。页面可见标题、摘要、作者和章节导航。',
+                  },
+                },
+              ],
+            }),
+            headers: {},
+            status: 200,
+          },
+        },
+        url: 'https://ai.example/v1/chat/completions',
+      },
+    ]);
+    const service = new OpenAIVisionOCRService({
+      configuration: () => ({
+        baseURL: 'https://ai.example/v1',
+        connectionTest: null,
+        model: 'deepseek-v4-flash-vision-exp',
+        multimodal: true,
+        preset: 'deepseek',
+        secretName: 'Chat Secret',
+      }),
+      http,
+      images: {
+        read: () => Promise.resolve({ bytes: new Uint8Array([1, 2, 3]), mimeType: 'image/png' }),
+      },
+      secretResolver: new FakeSecretResolver({ 'Chat Secret': 'fixture-secret' }),
+    });
+
+    await expect(service.preview(['capture.png'], 'zh-CN')).resolves.toEqual({
+      category: 'Experience',
+      preview:
+        '图片展示了一篇研究森林火灾规模与火后地表升温关系的 Nature 论文；页面可见标题、摘要、作者和章节导航。',
+      recommendation: null,
+      recommendationIssue: null,
+      title: '一篇研究森林火灾规模与火后地表升温关系的 Nature 论文',
+    });
+    expect(http.calls).toHaveLength(1);
   });
 
   it('scores a pure image against the single merged personal profile', async () => {
