@@ -27,7 +27,16 @@ const messageContentSchema = z.union([
 ]);
 
 const responseSchema = z.object({
-  choices: z.array(z.object({ message: z.object({ content: messageContentSchema }) })).min(1),
+  choices: z
+    .array(
+      z.object({
+        message: z.object({
+          content: messageContentSchema.optional(),
+          reasoning_content: z.string().optional(),
+        }),
+      }),
+    )
+    .min(1),
 });
 
 export interface ImageData {
@@ -127,6 +136,7 @@ export class OpenAIVisionOCRService implements CaptureVisionPort {
         language === 'zh-CN'
           ? '当前模型未标记为多模态，无法生成图片预览。'
           : 'The selected model is not marked as multimodal and cannot generate an image preview.',
+        { reason: 'model_not_multimodal' },
       );
     }
     const profile = await this.#preferenceProfile();
@@ -134,36 +144,44 @@ export class OpenAIVisionOCRService implements CaptureVisionPort {
     const output = await this.#complete(
       paths,
       language === 'zh-CN'
-        ? `直接理解图片的视觉内容，不要只做 OCR。仅返回 JSON：{"category":"Project|Skill|Experience","title":"可辨识的简短标题","preview":"一句不超过 200 字的高密度描述，说明画面主体、关键信息及用途或意义"${preference.jsonFields}}。category 根据图片可见内容选择：项目、产品或工具界面→Project；明确的 Skill、提示词或能力包→Skill；其他方法、案例、知识或生活记录→Experience。${preference.instructions}不要推测图片外的信息。${preference.context}`
+        ? `直接理解图片的视觉内容，不要只做 OCR。仅返回 JSON：{"category":"Project|Skill|Experience","title":"可辨识的简短标题","preview":"一句不超过 200 字的高密度描述，说明画面主体、关键信息及用途或意义"${preference.jsonFields}}。category 根据图片可见内容选择：项目、产品或工具界面→Project；明确的 Skill、提示词或能力包→Skill；其他方法、案例、知识或生活记录→Experience。title 和 preview 必须使用简体中文；项目或 Skill 的单一品牌专名可以保留原文，普通英文课程标题必须翻译；title 不得以连词或未完成符号结尾，preview 必须以句末标点结束。${preference.instructions}不要推测图片外的信息。${preference.context}`
         : `Understand the visual content directly; do not substitute OCR for visual reasoning. Return JSON only: {"category":"Project|Skill|Experience","title":"short recognizable title","preview":"one information-dense sentence under 200 characters describing the subject, key information, and use or significance"${preference.jsonFields}}. Classify visible projects, products, and tool interfaces as Project; explicit Skills, prompts, or capability packs as Skill; and other methods, cases, knowledge, or personal records as Experience. ${preference.instructions}Do not infer beyond the image.${preference.context}`,
       'json',
     );
     const parsedOutput = parseJSON(output);
-    const parsed = normalizeVisualPreview(parsedOutput);
+    const parsed = normalizeVisualPreview(parsedOutput, language);
     if (parsed !== null) {
       const recommendation = visualRecommendation(parsedOutput, profile);
-      return {
-        category: parsed.category,
-        preview: parsed.preview,
-        recommendation: recommendation.value,
-        recommendationIssue: recommendation.issue,
-        title: parsed.title,
-      };
+      return await this.#repairRecommendation(
+        {
+          category: parsed.category,
+          preview: parsed.preview,
+          recommendation: recommendation.value,
+          recommendationIssue: recommendation.issue,
+          title: parsed.title,
+        },
+        language,
+        profile,
+      );
     }
 
-    const recovered = recoverVisualDescription(output);
+    const recovered = recoverVisualDescription(output, language);
     if (recovered !== null) {
-      return {
-        ...recovered,
-        recommendation: null,
-        recommendationIssue: recommendationEnabled(profile) ? 'invalid_output' : null,
-      };
+      return await this.#repairRecommendation(
+        {
+          ...recovered,
+          recommendation: null,
+          recommendationIssue: recommendationEnabled(profile) ? 'invalid_output' : null,
+        },
+        language,
+        profile,
+      );
     }
 
     let repaired: z.infer<typeof visualPreviewSchema> | null = null;
     try {
       const repairedOutput = await this.#complete([], visualRepairPrompt(language, output), 'json');
-      repaired = normalizeVisualPreview(parseJSON(repairedOutput));
+      repaired = normalizeVisualPreview(parseJSON(repairedOutput), language);
     } catch {
       // The original request succeeded. A formatting repair must not replace that
       // outcome with a misleading network or provider failure.
@@ -171,13 +189,44 @@ export class OpenAIVisionOCRService implements CaptureVisionPort {
     if (repaired === null) {
       throw new SelfGrowError('AI_OUTPUT_INVALID', 'The visual preview is invalid.');
     }
-    return {
-      category: repaired.category,
-      preview: repaired.preview,
-      recommendation: null,
-      recommendationIssue: recommendationEnabled(profile) ? 'invalid_output' : null,
-      title: repaired.title,
-    };
+    return await this.#repairRecommendation(
+      {
+        category: repaired.category,
+        preview: repaired.preview,
+        recommendation: null,
+        recommendationIssue: recommendationEnabled(profile) ? 'invalid_output' : null,
+        title: repaired.title,
+      },
+      language,
+      profile,
+    );
+  }
+
+  async #repairRecommendation(
+    card: VisualPreview,
+    language: Language,
+    profile: PreferenceProfile | null,
+  ): Promise<VisualPreview> {
+    if (
+      card.recommendationIssue !== 'invalid_output' ||
+      profile === null ||
+      !preferenceProfileHasSignals(profile)
+    ) {
+      return card;
+    }
+    try {
+      const output = await this.#complete(
+        [],
+        visualRecommendationRepairPrompt(language, profile, card),
+        'json',
+      );
+      const recommendation = visualRecommendation(parseJSON(output), profile);
+      return recommendation.value === null
+        ? card
+        : { ...card, recommendation: recommendation.value, recommendationIssue: null };
+    } catch {
+      return card;
+    }
   }
 
   async #complete(
@@ -241,12 +290,13 @@ export class OpenAIVisionOCRService implements CaptureVisionPort {
       });
     }
     const parsed = responseSchema.safeParse(parseJSON(response.body));
-    const responseContent = parsed.success ? parsed.data.choices[0]?.message.content : undefined;
-    const text = completionText(responseContent);
+    const message = parsed.success ? parsed.data.choices[0]?.message : undefined;
+    const text = completionText(message?.content, message?.reasoning_content, outputMode);
     if (text === undefined) {
       throw new SelfGrowError(
         'AI_PROTOCOL_UNSUPPORTED',
         'The AI service does not support image recognition.',
+        { reason: 'assistant_content_missing' },
       );
     }
     return text;
@@ -263,7 +313,7 @@ function visionRequestBody(
     model: configuration.model,
   };
   if (configuration.preset === 'kimi') {
-    if (outputMode === 'json') body.max_completion_tokens = 720;
+    if (outputMode === 'json') body.max_completion_tokens = 2_048;
     if (configuration.model.trim().toLocaleLowerCase() === 'kimi-k3') {
       body.reasoning_effort = 'low';
     }
@@ -271,7 +321,7 @@ function visionRequestBody(
   }
   body.temperature = 0;
   if (outputMode === 'json') {
-    body.max_tokens = 720;
+    body.max_tokens = 2_048;
     body.response_format = { type: 'json_object' };
   }
   return body;
@@ -279,56 +329,73 @@ function visionRequestBody(
 
 function completionText(
   content: z.infer<typeof messageContentSchema> | undefined,
+  reasoningContent: string | undefined,
+  outputMode: 'json' | 'text',
 ): string | undefined {
   if (typeof content === 'string') {
     const text = content.trim();
-    return text.length > 0 ? text : undefined;
+    if (text.length > 0) return text;
   }
-  if (content === undefined) return undefined;
-  const text = content
-    .map((part) => part.text?.trim() ?? '')
-    .filter((part) => part.length > 0)
-    .join('\n')
-    .trim();
-  return text.length > 0 ? text : undefined;
+  if (content !== undefined && typeof content !== 'string') {
+    const text = content
+      .map((part) => part.text?.trim() ?? '')
+      .filter((part) => part.length > 0)
+      .join('\n')
+      .trim();
+    if (text.length > 0) return text;
+  }
+  if (outputMode === 'text') return undefined;
+  const reasoning = reasoningContent?.trim();
+  if (reasoning === undefined || reasoning.length === 0) return undefined;
+  // Preserve provenance: reasoning prose is repair input, never a local visual description.
+  return extractJSONObject(reasoning) ?? JSON.stringify({ unvalidatedVisualReasoning: reasoning });
 }
 
-function normalizeVisualPreview(input: unknown): z.infer<typeof visualPreviewSchema> | null {
+function normalizeVisualPreview(
+  input: unknown,
+  language: Language,
+): z.infer<typeof visualPreviewSchema> | null {
   const candidate = visualPreviewInputSchema.safeParse(input);
   if (!candidate.success) return null;
   const category = normalizeVisualCategory(candidate.data.category);
   if (category === null) return null;
   const normalized = visualPreviewSchema.safeParse({
     category,
-    preview: normalizeSingleSentence(candidate.data.preview, 200),
-    title: compactVisualText(candidate.data.title)
-      .replace(/^#{1,6}\s*/u, '')
-      .slice(0, 80),
+    preview: normalizeSingleSentence(candidate.data.preview),
+    title: compactVisualText(candidate.data.title).replace(/^#{1,6}\s*/u, ''),
   });
-  return normalized.success ? normalized.data : null;
+  return normalized.success && visualLanguageMatches(normalized.data, language)
+    ? normalized.data
+    : null;
 }
 
-function recoverVisualDescription(output: string): z.infer<typeof visualPreviewSchema> | null {
+function recoverVisualDescription(
+  output: string,
+  language: Language,
+): z.infer<typeof visualPreviewSchema> | null {
   if (/[{}]/u.test(output)) return null;
   const compact = compactVisualText(output.replace(/```(?:json)?|```/giu, ''));
   if (
     compact.length < 12 ||
-    /(?:无法|不能|抱歉|未能|不支持|cannot|can't|unable|sorry|unsupported)/iu.test(compact)
+    /(?:无法|不能|抱歉|未能|不支持|cannot|can't|unable|sorry|unsupported|we need to|need to analyze|let(?:'|’)s|我们需要|需要分析)/iu.test(
+      compact,
+    )
   ) {
     return null;
   }
   const title = compact
     .split(/[。！？!?；;:]|\.(?=\s|$)/u, 1)[0]
     ?.replace(/^(?:图片|图中|画面)(?:展示|显示|呈现|包含)(?:了)?/u, '')
-    .trim()
-    .slice(0, 80);
+    .trim();
   if (title === undefined || title.length === 0) return null;
   const normalized = visualPreviewSchema.safeParse({
     category: inferVisualCategory(compact),
-    preview: normalizeSingleSentence(compact, 200),
+    preview: normalizeSingleSentence(compact),
     title,
   });
-  return normalized.success ? normalized.data : null;
+  return normalized.success && visualLanguageMatches(normalized.data, language)
+    ? normalized.data
+    : null;
 }
 
 function inferVisualCategory(value: string): RawCategory {
@@ -353,8 +420,8 @@ function compactVisualText(value: string): string {
   return value.replace(/\s+/gu, ' ').trim();
 }
 
-function normalizeSingleSentence(value: string, maxLength: number): string {
-  const compact = compactVisualText(value).slice(0, maxLength);
+function normalizeSingleSentence(value: string): string {
+  const compact = compactVisualText(value);
   const terminals = [...compact.matchAll(/[。！？!?]+|\.(?=\s|$)/gu)];
   if (terminals.length <= 1) return compact;
   let current = 0;
@@ -362,6 +429,22 @@ function normalizeSingleSentence(value: string, maxLength: number): string {
     current += 1;
     return current < terminals.length ? '；' : terminal;
   });
+}
+
+function visualLanguageMatches(
+  card: z.infer<typeof visualPreviewSchema>,
+  language: Language,
+): boolean {
+  if (!/[。！？!?.]$/u.test(card.preview) || /(?:…|\.\.)$/u.test(card.preview)) return false;
+  if (/(?:[&/:：-]|\b(?:and|or|with|for|to|of|the|a|an))$/iu.test(card.title)) return false;
+  if (language === 'zh-CN') {
+    const singleTokenName = /^[A-Za-z0-9][A-Za-z0-9_.+-]{1,79}$/u.test(card.title);
+    return (
+      /\p{Script=Han}/u.test(card.preview) &&
+      (/\p{Script=Han}/u.test(card.title) || singleTokenName)
+    );
+  }
+  return /[A-Za-z]/u.test(card.preview);
 }
 
 function visualRepairPrompt(language: Language, originalOutput: string): string {
@@ -453,6 +536,22 @@ function visualPreferencePrompt(
     jsonFields:
       ',"recommendationScore":0,"recommendationReason":"one advisory reason","matchedPreferenceSignals":["human-readable preference name"]',
   };
+}
+
+function visualRecommendationRepairPrompt(
+  language: Language,
+  profile: PreferenceProfile,
+  card: VisualPreview,
+): string {
+  const preference = visualPreferencePrompt(language, profile);
+  const core = JSON.stringify({
+    category: card.category,
+    preview: card.preview,
+    title: card.title,
+  });
+  return language === 'zh-CN'
+    ? `仅为下面已经验证通过的图片卡片补充推荐度。只返回 JSON：{"recommendationScore":0,"recommendationReason":"一句完整的中文理由","matchedPreferenceSignals":["人类可读偏好名称"]}。${preference.instructions}${preference.context}\n<card>${core}</card>`
+    : `Add only an advisory score to the validated image card below. Return JSON only: {"recommendationScore":0,"recommendationReason":"one complete reason","matchedPreferenceSignals":["human-readable preference name"]}. ${preference.instructions}${preference.context}\n<card>${core}</card>`;
 }
 
 function chatEndpoint(baseURL: string): string {

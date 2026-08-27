@@ -104,9 +104,14 @@ export class LinkSupplementExtractor implements ContentExtractor {
 
 function visualFallbackPreview(error: unknown, language: ExtractionRequest['language']): string {
   if (isSelfGrowError(error) && error.code === 'AI_PROTOCOL_UNSUPPORTED') {
+    if (error.diagnostics.reason === 'model_not_multimodal') {
+      return language === 'zh-CN'
+        ? '原图已保留；当前模型未配置为支持图片理解，选择沉淀后可由智能体直接理解图片。'
+        : 'The original image is retained; the current model is not configured for image understanding, so an agent can inspect it after selection.';
+    }
     return language === 'zh-CN'
-      ? '原图已保留；当前模型未配置为支持图片理解，选择沉淀后可由智能体直接理解图片。'
-      : 'The original image is retained; the current model is not configured for image understanding, so an agent can inspect it after selection.';
+      ? '原图已保留；视觉服务返回了不兼容的响应，选择沉淀后可由智能体直接理解图片。'
+      : 'The original image is retained; the vision service returned an incompatible response, so an agent can inspect it after selection.';
   }
   if (isSelfGrowError(error) && error.code === 'AI_OUTPUT_INVALID') {
     return language === 'zh-CN'

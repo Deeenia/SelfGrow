@@ -179,7 +179,9 @@ describe('LinkSupplementExtractor', () => {
     const noVision: CaptureVisionPort = {
       preview: () =>
         Promise.reject(
-          new SelfGrowError('AI_PROTOCOL_UNSUPPORTED', 'Model does not support images.'),
+          new SelfGrowError('AI_PROTOCOL_UNSUPPORTED', 'Model does not support images.', {
+            reason: 'model_not_multimodal',
+          }),
         ),
       recognize: () => Promise.resolve(''),
     };
@@ -210,6 +212,42 @@ describe('LinkSupplementExtractor', () => {
           recommendation: null,
           source: 'local',
         },
+      },
+      kind: 'complete',
+    });
+  });
+
+  it('reports an incompatible vision response without claiming the model is unconfigured', async () => {
+    const incompatible: CaptureVisionPort = {
+      preview: () =>
+        Promise.reject(
+          new SelfGrowError('AI_PROTOCOL_UNSUPPORTED', 'Missing assistant content.', {
+            reason: 'assistant_content_missing',
+          }),
+        ),
+      recognize: () => Promise.resolve(''),
+    };
+    const base: ContentExtractor = {
+      canHandle: () => true,
+      extract: () => Promise.reject(new Error('Image-only input must not use link extraction.')),
+      id: 'fixture',
+    };
+
+    await expect(
+      new LinkSupplementExtractor(base, incompatible).extract(
+        request({
+          url: {
+            normalized: 'selfgrow:text:image-capture',
+            platform: 'unknown',
+            received: 'selfgrow:text:image-capture',
+          },
+        }),
+      ),
+    ).resolves.toMatchObject({
+      content: {
+        body: '原图已保留；视觉服务返回了不兼容的响应，选择沉淀后可由智能体直接理解图片。',
+        route: 'visual_preview',
+        visualRecognition: { source: 'local' },
       },
       kind: 'complete',
     });

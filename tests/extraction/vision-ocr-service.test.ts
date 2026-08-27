@@ -91,13 +91,163 @@ describe('OpenAIVisionOCRService', () => {
     });
     expect(http.calls[0]?.body).toContain('不要只做 OCR');
     expect(JSON.parse(http.calls[0]?.body ?? '{}')).toMatchObject({
-      max_completion_tokens: 720,
+      max_completion_tokens: 2048,
       model: 'kimi-k3',
       reasoning_effort: 'low',
     });
     expect(JSON.parse(http.calls[0]?.body ?? '{}')).not.toHaveProperty('max_tokens');
     expect(JSON.parse(http.calls[0]?.body ?? '{}')).not.toHaveProperty('response_format');
     expect(JSON.parse(http.calls[0]?.body ?? '{}')).not.toHaveProperty('temperature');
+  });
+
+  it('uses reasoning content when a compatible vision provider leaves content empty', async () => {
+    const http = new FixtureHTTPTransport([
+      {
+        method: 'POST',
+        outcome: {
+          kind: 'response',
+          response: {
+            body: JSON.stringify({
+              choices: [
+                {
+                  message: {
+                    content: '',
+                    reasoning_content: `视觉结果：${JSON.stringify({
+                      category: 'Project',
+                      preview: '图片展示了带有输入、处理步骤和验证结果的工程工作流。',
+                      title: '工程验证工作流',
+                    })}`,
+                  },
+                },
+              ],
+            }),
+            headers: {},
+            status: 200,
+          },
+        },
+        url: 'https://ai.example/v1/chat/completions',
+      },
+    ]);
+    const service = new OpenAIVisionOCRService({
+      configuration: () => ({
+        baseURL: 'https://ai.example/v1',
+        connectionTest: null,
+        model: 'custom-vision-model',
+        multimodal: true,
+        preset: 'custom',
+        secretName: 'Chat Secret',
+      }),
+      http,
+      images: {
+        read: () => Promise.resolve({ bytes: new Uint8Array([1, 2, 3]), mimeType: 'image/png' }),
+      },
+      secretResolver: new FakeSecretResolver({ 'Chat Secret': 'fixture-secret' }),
+    });
+
+    await expect(service.preview(['capture.png'], 'zh-CN')).resolves.toMatchObject({
+      category: 'Project',
+      preview: '图片展示了带有输入、处理步骤和验证结果的工程工作流。',
+      title: '工程验证工作流',
+    });
+    expect(http.calls).toHaveLength(1);
+  });
+
+  it.each([
+    {
+      content: '',
+      reasoning_content:
+        "We need to analyze the image; it's a university slide asking questions ab",
+    },
+    {
+      content: '',
+      reasoning_content: '图片是一张课程幻灯片，可以从标题开始考虑安全更新与稳定性的关系。',
+    },
+    {
+      content: JSON.stringify({
+        category: 'Experience',
+        title: '更新悖论',
+        preview: '课程讨论安全更新与系统稳定之间的取舍。后面的内容还没有',
+      }),
+    },
+    {
+      content: JSON.stringify({
+        category: 'Experience',
+        title: '更新悖论',
+        preview: '课程讨论更新与稳定性，'.repeat(30) + '并提出安全边界。',
+      }),
+    },
+    {
+      content: JSON.stringify({
+        category: 'Experience',
+        title: '课程更新悖论'.repeat(20),
+        preview: '课程讨论安全更新与系统稳定之间的取舍。',
+      }),
+    },
+  ])('repairs incomplete or unvalidated visual output without cutting it: %#', async (message) => {
+    const http = new FixtureHTTPTransport([
+      {
+        method: 'POST',
+        outcome: [
+          {
+            kind: 'response',
+            response: {
+              body: JSON.stringify({
+                choices: [
+                  {
+                    message,
+                  },
+                ],
+              }),
+              headers: {},
+              status: 200,
+            },
+          },
+          {
+            kind: 'response',
+            response: {
+              body: JSON.stringify({
+                choices: [
+                  {
+                    message: {
+                      content: JSON.stringify({
+                        category: 'Experience',
+                        preview: '图片展示了一张讨论安全更新与系统稳定取舍的大学课程幻灯片。',
+                        title: 'FIT5122 专业实践更新悖论',
+                      }),
+                    },
+                  },
+                ],
+              }),
+              headers: {},
+              status: 200,
+            },
+          },
+        ],
+        url: 'https://ai.example/v1/chat/completions',
+      },
+    ]);
+    const service = new OpenAIVisionOCRService({
+      configuration: () => ({
+        baseURL: 'https://ai.example/v1',
+        connectionTest: null,
+        model: 'custom-vision-model',
+        multimodal: true,
+        preset: 'custom',
+        secretName: 'Chat Secret',
+      }),
+      http,
+      images: {
+        read: () => Promise.resolve({ bytes: new Uint8Array([1, 2, 3]), mimeType: 'image/png' }),
+      },
+      secretResolver: new FakeSecretResolver({ 'Chat Secret': 'fixture-secret' }),
+    });
+
+    await expect(service.preview(['capture.png'], 'zh-CN')).resolves.toMatchObject({
+      preview: '图片展示了一张讨论安全更新与系统稳定取舍的大学课程幻灯片。',
+      title: 'FIT5122 专业实践更新悖论',
+    });
+    expect(http.calls).toHaveLength(2);
+    expect(http.calls[1]?.body).not.toContain('data:image/png');
   });
 
   it('normalizes common provider wrappers without discarding valid visual understanding', async () => {
@@ -349,7 +499,7 @@ describe('OpenAIVisionOCRService', () => {
     expect(http.calls[0]?.body).toContain('<preference_profile>');
     expect(http.calls[0]?.body).not.toContain('visual-workflows');
     expect(JSON.parse(http.calls[0]?.body ?? '{}')).toMatchObject({
-      max_tokens: 720,
+      max_tokens: 2048,
       response_format: { type: 'json_object' },
     });
   });
@@ -447,28 +597,50 @@ describe('OpenAIVisionOCRService', () => {
     const http = new FixtureHTTPTransport([
       {
         method: 'POST',
-        outcome: {
-          kind: 'response',
-          response: {
-            body: JSON.stringify({
-              choices: [
-                {
-                  message: {
-                    content: JSON.stringify({
-                      category: 'Skill',
-                      preview: '图片展示了用于复现实验步骤和核对结果的研究工作流。',
-                      recommendationReason: '内容符合用户的研究方法偏好。',
-                      recommendationScore: 101,
-                      title: '实验复现工作流',
-                    }),
+        outcome: [
+          {
+            kind: 'response',
+            response: {
+              body: JSON.stringify({
+                choices: [
+                  {
+                    message: {
+                      content: JSON.stringify({
+                        category: 'Skill',
+                        preview: '图片展示了用于复现实验步骤和核对结果的研究工作流。',
+                        recommendationReason: '内容符合用户的研究方法偏好。',
+                        recommendationScore: 101,
+                        title: '实验复现工作流',
+                      }),
+                    },
                   },
-                },
-              ],
-            }),
-            headers: {},
-            status: 200,
+                ],
+              }),
+              headers: {},
+              status: 200,
+            },
           },
-        },
+          {
+            kind: 'response',
+            response: {
+              body: JSON.stringify({
+                choices: [
+                  {
+                    message: {
+                      content: JSON.stringify({
+                        matchedPreferenceSignals: ['感兴趣：研究方法'],
+                        recommendationReason: '图片中的可复现实验流程符合用户的研究方法偏好。',
+                        recommendationScore: 88,
+                      }),
+                    },
+                  },
+                ],
+              }),
+              headers: {},
+              status: 200,
+            },
+          },
+        ],
         url: 'https://ai.example/v1/chat/completions',
       },
     ]);
@@ -507,9 +679,11 @@ describe('OpenAIVisionOCRService', () => {
     await expect(service.preview(['capture.png'], 'zh-CN')).resolves.toMatchObject({
       category: 'Skill',
       preview: '图片展示了用于复现实验步骤和核对结果的研究工作流。',
-      recommendation: null,
-      recommendationIssue: 'invalid_output',
+      recommendation: { matchedPreferenceSignals: ['感兴趣：研究方法'], score: 88 },
+      recommendationIssue: null,
       title: '实验复现工作流',
     });
+    expect(http.calls).toHaveLength(2);
+    expect(http.calls[1]?.body).not.toContain('data:image/png');
   });
 });

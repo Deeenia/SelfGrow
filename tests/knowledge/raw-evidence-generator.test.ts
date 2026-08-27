@@ -114,14 +114,17 @@ describe('RawEvidenceGenerator', () => {
     });
   });
 
-  it('keeps the existing one-sentence visual preview path', async () => {
+  it.each([
+    '服务队列架构图',
+    'FIT5122 Professional Practice 专业实践：安全更新与系统稳定性的决策边界',
+  ])('preserves the validated visual title without a second cut: %s', async (title) => {
     const result = await new RawEvidenceGenerator().generate(
       {
         ...CONTENT,
         body: '图片展示了由服务、队列和数据库组成的系统架构。',
         route: 'visual_preview',
         sourceLanguage: 'zh-CN',
-        title: '服务队列架构图',
+        title,
         visualRecognition: {
           category: 'Project',
           recommendation: {
@@ -146,7 +149,7 @@ describe('RawEvidenceGenerator', () => {
         score: 84,
       },
       summaryMarkdown: '图片展示了由服务、队列和数据库组成的系统架构。',
-      title: '服务队列架构图',
+      title,
     });
   });
 
@@ -285,7 +288,7 @@ describe('RawEvidenceGenerator', () => {
           githubQueries: ['Learn Harness Engineering'],
           preview:
             '课程通过任务规范、上下文供给、执行环境和验证反馈，为 AI Agent 建立可验证的工程闭环。',
-          title: 'Learn Harness Engineering',
+          title: 'Harness Engineering 工程课程',
         }),
       ),
     ]);
@@ -305,14 +308,14 @@ describe('RawEvidenceGenerator', () => {
       recognitionSource: 'ai',
       summaryMarkdown:
         '课程通过任务规范、上下文供给、执行环境和验证反馈，为 AI Agent 建立可验证的工程闭环。',
-      title: 'Learn Harness Engineering',
+      title: 'Harness Engineering 工程课程',
     });
     expect(http.calls).toHaveLength(1);
     const request = JSON.parse(http.calls[0]?.body ?? '{}') as {
       max_tokens?: number;
       messages?: Array<{ content?: string }>;
     };
-    expect(request.max_tokens).toBe(720);
+    expect(request.max_tokens).toBe(2048);
     expect(request.messages?.[0]?.content).toContain(CONTENT.body);
     expect(request.messages?.[0]?.content).toContain('preference_profile');
     expect(request.messages?.[0]?.content).not.toContain('preference_keywords');
@@ -475,6 +478,120 @@ describe('RawEvidenceGenerator', () => {
     });
   });
 
+  it('accepts wrapped JSON from provider text content parts', async () => {
+    const content = JSON.stringify({
+      category: 'Project',
+      githubQueries: [],
+      matchedPreferenceSignals: ['可复现证据'],
+      preview: '提供可重复验证的工程步骤，并明确记录适用范围和证据边界。',
+      recommendationReason: '完整偏好协议将可复现和证据边界列为正向标准。',
+      recommendationScore: 88,
+      title: '可复现工程流程',
+    });
+    const http = new FixtureHTTPTransport([
+      {
+        method: 'POST',
+        outcome: {
+          kind: 'response',
+          response: {
+            body: JSON.stringify({
+              choices: [
+                { message: { content: [{ text: `识别结果如下：\n${content}`, type: 'text' }] } },
+              ],
+            }),
+            headers: {},
+            status: 200,
+          },
+        },
+        url: 'https://api.example.com/v1/chat/completions',
+      },
+    ]);
+
+    await expect(generator(http).generate(CONTENT, 'zh-CN')).resolves.toMatchObject({
+      recognitionSource: 'ai',
+      recommendation: { score: 88 },
+      summaryMarkdown: '提供可重复验证的工程步骤，并明确记录适用范围和证据边界。',
+      title: '可复现工程流程',
+    });
+    expect(http.calls).toHaveLength(1);
+  });
+
+  it('uses reasoning content when a compatible provider leaves content empty', async () => {
+    const http = new FixtureHTTPTransport([
+      {
+        method: 'POST',
+        outcome: {
+          kind: 'response',
+          response: {
+            body: JSON.stringify({
+              choices: [
+                {
+                  message: {
+                    content: '',
+                    reasoning_content: JSON.stringify({
+                      category: 'Experience',
+                      githubQueries: [],
+                      preview: '总结可复用的实践步骤，并说明验证方式与适用边界。',
+                      title: '工程复盘方法',
+                    }),
+                  },
+                },
+              ],
+            }),
+            headers: {},
+            status: 200,
+          },
+        },
+        url: 'https://api.example.com/v1/chat/completions',
+      },
+    ]);
+
+    await expect(generator(http, null).generate(CONTENT, 'zh-CN')).resolves.toMatchObject({
+      recognitionSource: 'ai',
+      summaryMarkdown: '总结可复用的实践步骤，并说明验证方式与适用边界。',
+      title: '工程复盘方法',
+    });
+    expect(http.calls).toHaveLength(1);
+  });
+
+  it.each([
+    {
+      title: 'FIT5122 Professional Practice: Update Paradox &',
+      preview: 'Monash University slide asking questions ab',
+    },
+    { title: '更新悖论', preview: '课程讨论安全更新与系统稳定之间的取舍。还需要进一步考虑' },
+    { title: '更新悖论', preview: '课程讨论安全更新与系统稳定之间的取舍，并提出若干思考…' },
+  ])('repairs an invalid core card and then scores it: $preview', async (invalid) => {
+    const http = new FixtureHTTPTransport([
+      chatRoute(
+        JSON.stringify({
+          category: 'Experience',
+          githubQueries: [],
+          ...invalid,
+        }),
+        JSON.stringify({
+          category: 'Experience',
+          githubQueries: [],
+          preview: '课程讨论安全更新与系统稳定之间的取舍，并引导学生分析更新悖论。',
+          title: 'FIT5122 专业实践：更新悖论',
+        }),
+        JSON.stringify({
+          recommendationScore: 86,
+          recommendationReason: '工程决策的验证边界符合用户协议中的实践偏好。',
+        }),
+      ),
+    ]);
+
+    await expect(generator(http).generate(CONTENT, 'zh-CN')).resolves.toMatchObject({
+      recognitionSource: 'ai',
+      summaryMarkdown: '课程讨论安全更新与系统稳定之间的取舍，并引导学生分析更新悖论。',
+      title: 'FIT5122 专业实践：更新悖论',
+      recommendation: { score: 86 },
+    });
+    expect(http.calls).toHaveLength(3);
+    expect(http.calls[2]?.body).toContain('<preference_profile>');
+  });
+
   it('falls back locally when both the full card and core-only repair are invalid', async () => {
     const http = new FixtureHTTPTransport([
       chatRoute(
@@ -508,17 +625,22 @@ describe('RawEvidenceGenerator', () => {
       matchedUninterestedKeywords: [],
       title: '工程实践',
     });
-    const http = new FixtureHTTPTransport([chatRoute(invalid)]);
+    const repairedRecommendation = JSON.stringify({
+      matchedPreferenceSignals: ['可复现证据'],
+      recommendationReason: '内容提供可验证的工程实践，符合个人协议中的高权重偏好。',
+      recommendationScore: 86,
+    });
+    const http = new FixtureHTTPTransport([chatRoute(invalid, repairedRecommendation)]);
     const result = await generator(http).generate(CONTENT, 'zh-CN');
 
     expect(result).toMatchObject({
       category: 'Project',
-      recommendation: null,
-      recommendationIssue: 'invalid_output',
+      recommendation: { matchedPreferenceSignals: ['可复现证据'], score: 86 },
+      recommendationIssue: null,
       summaryMarkdown: '提供可验证的工程实践，并说明适用范围与限制条件。',
       title: '工程实践',
     });
-    expect(http.calls).toHaveLength(1);
+    expect(http.calls).toHaveLength(2);
   });
 
   it('drops unknown profile labels without discarding a valid score or core card', async () => {
@@ -562,6 +684,7 @@ describe('RawEvidenceGenerator', () => {
             '提供可扩展的软件开发 Agent 运行环境，覆盖代码修改、命令执行与任务验证的完整闭环流程。',
           title: 'OpenHands',
         }),
+        'Recommendation still unavailable',
       ),
     ]);
     const result = await generator(http).generate(CONTENT, 'zh-CN');
@@ -569,7 +692,7 @@ describe('RawEvidenceGenerator', () => {
     expect(result.category).toBe('Project');
     expect(result.recommendation).toBeNull();
     expect(result.recommendationIssue).toBe('invalid_output');
-    expect(http.calls).toHaveLength(2);
+    expect(http.calls).toHaveLength(3);
     expect(http.calls[1]?.body).not.toContain('<preference_profile>');
   });
 
