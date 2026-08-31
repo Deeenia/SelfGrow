@@ -1,4 +1,5 @@
 import { SelfGrowError, isSelfGrowError, type Language } from '../domain';
+import { applySupportedNonThinkingMode } from './chat-request-options';
 import type {
   HTTPRequest,
   HTTPResponse,
@@ -205,11 +206,11 @@ function chatProbeBody(resolved: ResolvedConfiguration): Record<string, unknown>
   };
   if (resolved.preset === 'kimi') {
     body.max_completion_tokens = 64;
-    if (resolved.model === 'kimi-k3') body.reasoning_effort = 'low';
   } else {
     body.max_tokens = 64;
     body.temperature = 0;
   }
+  applySupportedNonThinkingMode(body, resolved);
   return body;
 }
 

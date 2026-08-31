@@ -94,9 +94,9 @@ describe('OpenAIVisionOCRService', () => {
       max_completion_tokens: 2048,
       model: 'kimi-k3',
       reasoning_effort: 'low',
+      response_format: { type: 'json_object' },
     });
     expect(JSON.parse(http.calls[0]?.body ?? '{}')).not.toHaveProperty('max_tokens');
-    expect(JSON.parse(http.calls[0]?.body ?? '{}')).not.toHaveProperty('response_format');
     expect(JSON.parse(http.calls[0]?.body ?? '{}')).not.toHaveProperty('temperature');
   });
 

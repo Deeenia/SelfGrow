@@ -7,7 +7,7 @@ import {
   serializeKnowledgeNoteContent,
 } from '../../src/knowledge';
 import { FakeSecretResolver, FixtureHTTPTransport } from '../harness';
-import type { PreferenceProfile } from '../../src/settings';
+import type { EndpointSettings, PreferenceProfile } from '../../src/settings';
 
 const CONTENT: ExtractedContent = {
   body: '## First\n\nComplete source body.\n\n## Second\n\nMore evidence.',
@@ -53,6 +53,7 @@ function withRecommendation(content: string): string {
 function generator(
   http: FixtureHTTPTransport,
   preferenceProfile: PreferenceProfile | null = PREFERENCE_PROFILE,
+  configuration: Partial<EndpointSettings> = {},
 ): RawEvidenceGenerator {
   return new RawEvidenceGenerator({
     configuration: () => ({
@@ -62,6 +63,7 @@ function generator(
       multimodal: false,
       preset: 'custom',
       secretName: 'Chat Secret',
+      ...configuration,
     }),
     http,
     preferenceProfile: () => Promise.resolve(preferenceProfile),
@@ -316,9 +318,64 @@ describe('RawEvidenceGenerator', () => {
       messages?: Array<{ content?: string }>;
     };
     expect(request.max_tokens).toBe(2048);
+    expect(http.calls[0]?.timeoutMs).toBe(60_000);
     expect(request.messages?.[0]?.content).toContain(CONTENT.body);
     expect(request.messages?.[0]?.content).toContain('preference_profile');
     expect(request.messages?.[0]?.content).not.toContain('preference_keywords');
+  });
+
+  it('uses provider-compatible Kimi request fields', async () => {
+    const http = new FixtureHTTPTransport([
+      chatRoute(
+        JSON.stringify({
+          category: 'Project',
+          githubQueries: [],
+          preview: '提供可验证的工程实践，并说明适用范围与限制条件。',
+          title: '工程实践',
+        }),
+      ),
+    ]);
+
+    await generator(http, PREFERENCE_PROFILE, {
+      model: 'kimi-k3',
+      preset: 'kimi',
+    }).generate(CONTENT, 'zh-CN');
+
+    const request = JSON.parse(http.calls[0]?.body ?? '{}') as Record<string, unknown>;
+    expect(request).toMatchObject({
+      max_completion_tokens: 2_048,
+      model: 'kimi-k3',
+      reasoning_effort: 'low',
+      response_format: { type: 'json_object' },
+    });
+    expect(request).not.toHaveProperty('max_tokens');
+    expect(request).not.toHaveProperty('temperature');
+  });
+
+  it('disables DeepSeek thinking for structured card output', async () => {
+    const http = new FixtureHTTPTransport([
+      chatRoute(
+        JSON.stringify({
+          category: 'Project',
+          githubQueries: [],
+          preview: '提供可验证的工程实践，并说明适用范围与限制条件。',
+          title: '工程实践',
+        }),
+      ),
+    ]);
+
+    await generator(http, PREFERENCE_PROFILE, {
+      model: 'deepseek-v4-pro',
+      preset: 'deepseek',
+    }).generate(CONTENT, 'zh-CN');
+
+    const request = JSON.parse(http.calls[0]?.body ?? '{}') as Record<string, unknown>;
+    expect(request).toMatchObject({
+      max_tokens: 2_048,
+      model: 'deepseek-v4-pro',
+      response_format: { type: 'json_object' },
+      thinking: { type: 'disabled' },
+    });
   });
 
   it('lets the model score the complete natural-language profile without sending IDs or source records', async () => {
@@ -641,6 +698,88 @@ describe('RawEvidenceGenerator', () => {
       title: '工程实践',
     });
     expect(http.calls).toHaveLength(2);
+  });
+
+  it.each([
+    { model: 'kimi-k2.6', thinking: { type: 'disabled' } },
+    { model: 'kimi-k2.7-code', thinking: undefined },
+    { model: 'kimi-k2.7-code-highspeed', thinking: undefined },
+  ])(
+    'repairs an omitted recommendation for $model without replacing the core card',
+    async ({ model, thinking }) => {
+      const http = new FixtureHTTPTransport([
+        chatRoute(
+          JSON.stringify({
+            category: 'Project',
+            githubQueries: [],
+            preview: '核心卡片已经成功生成，并保留这份来源的用途和实际价值。',
+            recommendationReason: null,
+            recommendationScore: null,
+            title: 'Kimi 核心卡片',
+          }),
+          JSON.stringify({
+            matchedPreferenceSignals: ['可复现证据'],
+            recommendationReason: '内容提供可复现的证据路径，符合个人偏好协议中的正向标准。',
+            recommendationScore: 84,
+          }),
+        ),
+      ]);
+
+      const result = await generator(http, PREFERENCE_PROFILE, {
+        model,
+        preset: 'kimi',
+      }).generate(CONTENT, 'zh-CN');
+
+      expect(result).toMatchObject({
+        recommendation: {
+          matchedPreferenceSignals: ['可复现证据'],
+          reason: '内容提供可复现的证据路径，符合个人偏好协议中的正向标准。',
+          score: 84,
+        },
+        recommendationIssue: null,
+        summaryMarkdown: '核心卡片已经成功生成，并保留这份来源的用途和实际价值。',
+        title: 'Kimi 核心卡片',
+      });
+      expect(http.calls).toHaveLength(2);
+      const repairBody = JSON.parse(http.calls[1]?.body ?? '{}') as Record<string, unknown>;
+      expect(repairBody).toMatchObject({
+        max_completion_tokens: 2_048,
+        model,
+        response_format: { type: 'json_object' },
+      });
+      if (thinking === undefined) expect(repairBody).not.toHaveProperty('thinking');
+      else expect(repairBody).toMatchObject({ thinking });
+      expect(repairBody).not.toHaveProperty('reasoning_effort');
+      expect(http.calls[1]?.body).toContain('<source>');
+      expect(http.calls[1]?.body).toContain('推荐字段未通过校验');
+      expect(http.calls[1]?.timeoutMs).toBe(60_000);
+    },
+  );
+
+  it('normalizes a numeric string score and multiline recommendation reason', async () => {
+    const http = new FixtureHTTPTransport([
+      chatRoute(
+        JSON.stringify({
+          category: 'Project',
+          githubQueries: [],
+          preview: '提供可验证的工程实践，并说明适用范围与限制条件。',
+          recommendationReason: '内容符合可复现证据偏好。\n同时具有实际工程价值。',
+          recommendationScore: '86',
+          title: '工程实践',
+        }),
+      ),
+    ]);
+
+    const result = await generator(http).generate(CONTENT, 'zh-CN');
+
+    expect(result).toMatchObject({
+      recommendation: {
+        reason: '内容符合可复现证据偏好。 同时具有实际工程价值。',
+        score: 86,
+      },
+      recommendationIssue: null,
+    });
+    expect(http.calls).toHaveLength(1);
   });
 
   it('drops unknown profile labels without discarding a valid score or core card', async () => {

@@ -8,6 +8,7 @@ import {
   type RawCategory,
 } from '../domain';
 import type { HTTPTransport, SecretResolver } from '../platform/ports';
+import { applySupportedNonThinkingMode } from '../ai/chat-request-options';
 import { z } from '../schema/zod';
 import {
   preferenceProfileHasSignals,
@@ -313,10 +314,11 @@ function visionRequestBody(
     model: configuration.model,
   };
   if (configuration.preset === 'kimi') {
-    if (outputMode === 'json') body.max_completion_tokens = 2_048;
-    if (configuration.model.trim().toLocaleLowerCase() === 'kimi-k3') {
-      body.reasoning_effort = 'low';
+    if (outputMode === 'json') {
+      body.max_completion_tokens = 2_048;
+      body.response_format = { type: 'json_object' };
     }
+    applySupportedNonThinkingMode(body, configuration);
     return body;
   }
   body.temperature = 0;
@@ -324,6 +326,7 @@ function visionRequestBody(
     body.max_tokens = 2_048;
     body.response_format = { type: 'json_object' };
   }
+  applySupportedNonThinkingMode(body, configuration);
   return body;
 }
 

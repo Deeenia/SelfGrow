@@ -141,6 +141,31 @@ describe('Task-015 chat connection test', () => {
     });
   });
 
+  it.each([
+    {
+      expected: { max_completion_tokens: 64, thinking: { type: 'disabled' } },
+      model: 'kimi-k2.6',
+      preset: 'kimi' as const,
+    },
+    {
+      expected: { enable_thinking: false, max_tokens: 64, temperature: 0 },
+      model: 'qwen3.8-max',
+      preset: 'qwen' as const,
+    },
+    {
+      expected: { max_tokens: 64, temperature: 0, thinking: { type: 'disabled' } },
+      model: 'deepseek-v4-flash',
+      preset: 'deepseek' as const,
+    },
+  ])('requests non-thinking mode in the $preset connection probe', async (fixture) => {
+    const transport = new FixtureHTTPTransport([route(successBody())]);
+    await service(transport).testChat(
+      configuration({ model: fixture.model, preset: fixture.preset }),
+    );
+
+    expect(JSON.parse(transport.calls[0]?.body ?? '{}')).toMatchObject(fixture.expected);
+  });
+
   it('accepts reasoning models that return only reasoning_content', async () => {
     const transport = new FixtureHTTPTransport([
       route(
