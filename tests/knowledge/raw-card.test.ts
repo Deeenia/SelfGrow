@@ -112,6 +112,7 @@ describe('Task-046 Raw schema and selection state', () => {
       platform: 'generic_web',
       previewMarkdown: 'Grounded summary.',
       recommendation: null,
+      recognitionSource: null,
       sourceURL: 'https://example.test/raw',
       title: 'Test',
     });
@@ -164,6 +165,20 @@ describe('Task-046 Raw schema and selection state', () => {
     await expect(fixture.service.read(fixture.path)).resolves.toMatchObject({
       recommendation: null,
       recommendationIssue: 'invalid_output',
+      title: 'Test',
+    });
+  });
+
+  it('exposes whether a generated preview came from AI or the local fallback', async () => {
+    const fixture = await createFixture();
+    await fixture.service.migrateAll();
+    await fixture.frontmatter.process(fixture.path, (current) => ({
+      ...current,
+      recognition_source: 'local',
+    }));
+
+    await expect(fixture.service.read(fixture.path)).resolves.toMatchObject({
+      recognitionSource: 'local',
       title: 'Test',
     });
   });

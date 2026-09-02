@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { vaultPath } from '../../src/domain';
+import { SelfGrowError, vaultPath } from '../../src/domain';
 import type { ExtractedContent } from '../../src/extraction';
 import {
   parseKnowledgeNoteContent,
@@ -649,6 +649,128 @@ describe('RawEvidenceGenerator', () => {
     expect(http.calls[2]?.body).toContain('<preference_profile>');
   });
 
+  it('repairs a Qwen long-English fallback from the actual invalid output', async () => {
+    const article: ExtractedContent = {
+      body: 'Evidence of dispersal limitation in soil microorganisms: Isolation reduces species richness on mycorrhizal tree islands\n\nPEAY, MATTEO GARBELOTTO, AND THOMAS D. BRUNS\n\nDepartment of Environmental Science, Policy and Management, University of California.\n\nDispersal limitation plays an important role in community ecology. The study uses tree islands to test ectomycorrhizal fungal richness across increasing isolation distances.',
+      bodyKind: 'article',
+      finalURL: 'selfgrow:text:english-paper',
+      platform: 'unknown',
+      route: 'captured_text',
+    };
+    const invalid = JSON.stringify({
+      category: 'Research',
+      githubQueries: [],
+      preview:
+        'PEAY, MATTEO GARBELOTTO, AND THOMAS D. BRUNS, Department of Environmental Science, Policy and Management.',
+      title: 'Evidence of dispersal limitation in soil microorganisms',
+    });
+    const repaired = JSON.stringify({
+      category: 'Experience',
+      githubQueries: [],
+      preview:
+        '研究利用菌根树岛的隔离梯度检验外生菌根真菌物种丰富度，说明扩散限制会显著影响群落组装。',
+      title: '菌根树岛微生物扩散限制研究',
+    });
+    const http = new FixtureHTTPTransport([chatRoute(invalid, repaired)]);
+
+    const result = await generator(http, null, {
+      model: 'qwen3.7-flash',
+      preset: 'qwen',
+    }).generate(article, 'zh-CN');
+
+    expect(result).toMatchObject({
+      category: 'Experience',
+      recognitionSource: 'ai',
+      summaryMarkdown:
+        '研究利用菌根树岛的隔离梯度检验外生菌根真菌物种丰富度，说明扩散限制会显著影响群落组装。',
+      title: '菌根树岛微生物扩散限制研究',
+    });
+    expect(http.calls).toHaveLength(2);
+    const firstRequest = JSON.parse(http.calls[0]?.body ?? '{}') as Record<string, unknown>;
+    expect(firstRequest).toMatchObject({
+      enable_thinking: false,
+      max_tokens: 2048,
+      response_format: { type: 'json_object' },
+    });
+    expect(http.calls[1]?.body).toContain('<invalid_card>');
+    expect(http.calls[1]?.body).toContain('PEAY, MATTEO GARBELOTTO');
+    expect(http.calls[1]?.body).toContain('<source>');
+  });
+
+  it('uses strict JSON Schema only for a Qwen model that supports it', async () => {
+    const http = new FixtureHTTPTransport([
+      chatRoute(
+        JSON.stringify({
+          category: 'Experience',
+          githubQueries: [],
+          preview: '材料总结了一个可验证的工程方法，并清楚说明了实施步骤、适用范围和主要限制。',
+          title: '可验证工程方法',
+        }),
+      ),
+    ]);
+
+    await generator(http, null, {
+      model: 'qwen3.8-flash',
+      preset: 'qwen',
+    }).generate(CONTENT, 'zh-CN');
+
+    const request = JSON.parse(http.calls[0]?.body ?? '{}') as Record<string, unknown>;
+    expect(request).toMatchObject({
+      response_format: {
+        json_schema: { name: 'selfgrow_raw_card', strict: true },
+        type: 'json_schema',
+      },
+    });
+    expect(request).not.toHaveProperty('max_tokens');
+  });
+
+  it.each([
+    {
+      label: 'a content block without type',
+      shape: (card: Record<string, unknown>) => [{ text: JSON.stringify(card) }],
+    },
+    {
+      label: 'an already parsed JSON object',
+      shape: (card: Record<string, unknown>) => card,
+    },
+  ])('accepts Qwen structured output returned as $label', async ({ shape }) => {
+    const card = {
+      category: 'Experience',
+      githubQueries: [],
+      matchedPreferenceSignals: ['可复现证据'],
+      preview: '研究利用菌根树岛的隔离梯度检验真菌物种丰富度，说明扩散限制会影响群落组装。',
+      recommendationReason: '研究包含可重复检验的生态学证据，符合可复现偏好。',
+      recommendationScore: 88,
+      title: '菌根树岛微生物扩散限制研究',
+    };
+    const http = new FixtureHTTPTransport([
+      {
+        method: 'POST',
+        outcome: {
+          kind: 'response',
+          response: {
+            body: JSON.stringify({ choices: [{ message: { content: shape(card) } }] }),
+            headers: {},
+            status: 200,
+          },
+        },
+        url: 'https://api.example.com/v1/chat/completions',
+      },
+    ]);
+
+    await expect(
+      generator(http, PREFERENCE_PROFILE, {
+        model: 'qwen3.7-flash',
+        preset: 'qwen',
+      }).generate(CONTENT, 'zh-CN'),
+    ).resolves.toMatchObject({
+      recognitionSource: 'ai',
+      recommendation: { score: 88 },
+      title: '菌根树岛微生物扩散限制研究',
+    });
+    expect(http.calls).toHaveLength(1);
+  });
+
   it('falls back locally when both the full card and core-only repair are invalid', async () => {
     const http = new FixtureHTTPTransport([
       chatRoute(
@@ -701,12 +823,12 @@ describe('RawEvidenceGenerator', () => {
   });
 
   it.each([
-    { model: 'kimi-k2.6', thinking: { type: 'disabled' } },
-    { model: 'kimi-k2.7-code', thinking: undefined },
-    { model: 'kimi-k2.7-code-highspeed', thinking: undefined },
+    { forcedThinking: false, model: 'kimi-k2.6', thinking: { type: 'disabled' } },
+    { forcedThinking: true, model: 'kimi-k2.7-code', thinking: undefined },
+    { forcedThinking: true, model: 'kimi-k2.7-code-highspeed', thinking: undefined },
   ])(
     'repairs an omitted recommendation for $model without replacing the core card',
-    async ({ model, thinking }) => {
+    async ({ forcedThinking, model, thinking }) => {
       const http = new FixtureHTTPTransport([
         chatRoute(
           JSON.stringify({
@@ -742,19 +864,54 @@ describe('RawEvidenceGenerator', () => {
       });
       expect(http.calls).toHaveLength(2);
       const repairBody = JSON.parse(http.calls[1]?.body ?? '{}') as Record<string, unknown>;
-      expect(repairBody).toMatchObject({
-        max_completion_tokens: 2_048,
-        model,
-        response_format: { type: 'json_object' },
-      });
+      expect(repairBody).toMatchObject(
+        forcedThinking
+          ? {
+              model,
+              response_format: {
+                json_schema: { name: 'selfgrow_recommendation', strict: true },
+                type: 'json_schema',
+              },
+            }
+          : {
+              max_completion_tokens: 2_048,
+              model,
+              response_format: { type: 'json_object' },
+            },
+      );
+      if (forcedThinking) {
+        expect(repairBody).not.toHaveProperty('max_completion_tokens');
+        expect(repairBody).not.toHaveProperty('max_tokens');
+      }
       if (thinking === undefined) expect(repairBody).not.toHaveProperty('thinking');
       else expect(repairBody).toMatchObject({ thinking });
       expect(repairBody).not.toHaveProperty('reasoning_effort');
       expect(http.calls[1]?.body).toContain('<source>');
       expect(http.calls[1]?.body).toContain('推荐字段未通过校验');
-      expect(http.calls[1]?.timeoutMs).toBe(60_000);
+      expect(http.calls[1]?.timeoutMs).toBe(forcedThinking ? 180_000 : 60_000);
     },
   );
+
+  it('reports a Kimi K2.7 model timeout instead of a network wait', async () => {
+    const http = {
+      request: () =>
+        Promise.reject(
+          new SelfGrowError('NETWORK_UNAVAILABLE', 'The HTTP request timed out.', {
+            reason: 'timeout',
+          }),
+        ),
+    };
+
+    await expect(
+      generator(http as unknown as FixtureHTTPTransport, null, {
+        model: 'kimi-k2.7-code',
+        preset: 'kimi',
+      }).generate(CONTENT, 'zh-CN'),
+    ).rejects.toMatchObject({
+      code: 'AI_REQUEST_TIMEOUT',
+      diagnostics: { model: 'kimi-k2.7-code', reason: 'model_timeout' },
+    });
+  });
 
   it('normalizes a numeric string score and multiline recommendation reason', async () => {
     const http = new FixtureHTTPTransport([

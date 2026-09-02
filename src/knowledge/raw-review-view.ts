@@ -346,6 +346,12 @@ export class RawReviewView extends ItemView {
           text: copy.preferenceSignalMatches(card.recommendation.matchedPreferenceSignals ?? []),
         });
       }
+    } else if (card.recognitionSource === 'local') {
+      body.createDiv({
+        attr: { 'aria-label': copy.localRecognitionFallback },
+        cls: 'selfgrow-review-recommendation is-unavailable',
+        text: copy.localRecognitionFallback,
+      });
     } else if (card.recommendationIssue === 'invalid_output') {
       body.createDiv({
         attr: { 'aria-label': copy.recommendationUnavailable },
@@ -635,6 +641,8 @@ const COPY = {
     recommendationScore: (score: number) => `Fit ${score} · ${recommendationDegree(score, 'en')}`,
     recommendationUnavailable:
       'Preference-profile score was not generated; the title, category, and preview were kept.',
+    localRecognitionFallback:
+      'The AI card did not pass validation; a local source preview is shown instead.',
     review: 'Review',
     select: 'Select for distillation',
     states: {
@@ -690,6 +698,7 @@ const COPY = {
     recommendationScore: (score: number) =>
       `推荐度 ${score} · ${recommendationDegree(score, 'zh-CN')}`,
     recommendationUnavailable: '偏好协议评分未生成；标题、分类和预览已正常保留。',
+    localRecognitionFallback: 'AI 卡片未通过校验；当前改用本地原文预览。',
     review: '筛选',
     select: '选择沉淀',
     states: {

@@ -37,6 +37,7 @@ export interface RawCardState {
   previewMarkdown: string;
   recommendation: PreferenceRecommendation | null;
   recommendationIssue?: PreferenceRecommendationIssue | null;
+  recognitionSource?: 'ai' | 'local' | null;
   sourceURL: string;
   title: string;
   wikiSelected: boolean;
@@ -271,6 +272,7 @@ export class RawCardService {
         path: safePath,
         recommendation: readRecommendation(frontmatter),
         recommendationIssue: readRecommendationIssue(frontmatter),
+        recognitionSource: readRecognitionSource(frontmatter),
         wikiSelected: false,
         wikiTargets: [],
       };
@@ -292,6 +294,7 @@ export class RawCardService {
         path: safePath,
         recommendation: readRecommendation(parsed.data),
         recommendationIssue: readRecommendationIssue(parsed.data),
+        recognitionSource: readRecognitionSource(frontmatter),
         wikiSelected: parsed.data.wiki_selected,
         wikiTargets: parsed.data.wiki_targets.map((target) => this.#assertWikiTarget(target)),
       };
@@ -481,6 +484,12 @@ function readRecommendation(frontmatter: Frontmatter): PreferenceRecommendation 
     reason,
     score,
   };
+}
+
+function readRecognitionSource(frontmatter: Frontmatter): 'ai' | 'local' | null {
+  if (frontmatter.recognition_source === 'ai') return 'ai';
+  if (frontmatter.recognition_source === 'local') return 'local';
+  return null;
 }
 
 function readRecommendationIssue(frontmatter: Frontmatter): PreferenceRecommendationIssue | null {

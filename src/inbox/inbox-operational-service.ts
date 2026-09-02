@@ -295,6 +295,10 @@ function localizedProcessingError(code: string | undefined, language: Language):
       return chinese
         ? 'AI 标题与预览生成失败，请检查连接后重试。'
         : 'AI title and preview generation failed. Check the connection and retry.';
+    case 'AI_REQUEST_TIMEOUT':
+      return chinese
+        ? 'AI 模型响应超时。请重试，或改用响应更快的模型。'
+        : 'The AI model timed out. Retry or use a faster model.';
     default:
       return chinese
         ? '处理未完成，可重试或永久删除。'

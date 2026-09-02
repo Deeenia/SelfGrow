@@ -100,6 +100,198 @@ describe('OpenAIVisionOCRService', () => {
     expect(JSON.parse(http.calls[0]?.body ?? '{}')).not.toHaveProperty('temperature');
   });
 
+  it('uses the forced-thinking Kimi K2.7 request contract and extended timeout', async () => {
+    const http = new FixtureHTTPTransport([
+      {
+        method: 'POST',
+        outcome: {
+          kind: 'response',
+          response: {
+            body: JSON.stringify({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      category: 'Experience',
+                      preview:
+                        '图片展示了一张论文图表，用于比较环境梯度与不同处理条件下的响应变化。',
+                      title: '环境梯度响应图',
+                    }),
+                  },
+                },
+              ],
+            }),
+            headers: {},
+            status: 200,
+          },
+        },
+        url: 'https://ai.example/v1/chat/completions',
+      },
+    ]);
+    const service = new OpenAIVisionOCRService({
+      configuration: () => ({
+        baseURL: 'https://ai.example/v1',
+        connectionTest: null,
+        model: 'kimi-k2.7-code',
+        multimodal: true,
+        preset: 'kimi',
+        secretName: 'Chat Secret',
+      }),
+      http,
+      images: {
+        read: () => Promise.resolve({ bytes: new Uint8Array([1, 2, 3]), mimeType: 'image/png' }),
+      },
+      secretResolver: new FakeSecretResolver({ 'Chat Secret': 'fixture-secret' }),
+    });
+
+    await service.preview(['capture.png'], 'zh-CN');
+
+    const request = JSON.parse(http.calls[0]?.body ?? '{}') as Record<string, unknown>;
+    expect(request).toMatchObject({
+      model: 'kimi-k2.7-code',
+      response_format: {
+        json_schema: { name: 'selfgrow_visual_card', strict: true },
+        type: 'json_schema',
+      },
+    });
+    expect(request).not.toHaveProperty('thinking');
+    expect(request).not.toHaveProperty('max_completion_tokens');
+    expect(request).not.toHaveProperty('max_tokens');
+    expect(http.calls[0]?.timeoutMs).toBe(180_000);
+  });
+
+  it('falls back to per-image understanding and synthesis when a Kimi multi-image call fails', async () => {
+    const response = (content: Record<string, unknown>) => ({
+      kind: 'response' as const,
+      response: {
+        body: JSON.stringify({ choices: [{ message: { content: JSON.stringify(content) } }] }),
+        headers: {},
+        status: 200,
+      },
+    });
+    const http = new FixtureHTTPTransport([
+      {
+        method: 'POST',
+        outcome: [
+          { kind: 'timeout' },
+          response({
+            category: 'Experience',
+            preview:
+              '第一张图片展示了论文中的三维响应曲面，用于比较温度与土壤湿度对指标的共同影响。',
+            title: '温度湿度响应曲面',
+          }),
+          response({
+            category: 'Experience',
+            preview: '第二张图片展示了分组响应曲线，并比较不同处理条件下指标随环境梯度变化的差异。',
+            title: '不同处理响应曲线',
+          }),
+          response({
+            category: 'Experience',
+            preview:
+              '两张论文图共同展示温度、土壤湿度及不同处理条件对研究指标的交互影响与响应差异。',
+            title: '环境梯度与处理效应图',
+          }),
+        ],
+        url: 'https://ai.example/v1/chat/completions',
+      },
+    ]);
+    const service = new OpenAIVisionOCRService({
+      configuration: () => ({
+        baseURL: 'https://ai.example/v1',
+        connectionTest: null,
+        model: 'kimi-k3',
+        multimodal: true,
+        preset: 'kimi',
+        secretName: 'Chat Secret',
+      }),
+      http,
+      images: {
+        read: () => Promise.resolve({ bytes: new Uint8Array([1, 2, 3]), mimeType: 'image/png' }),
+      },
+      secretResolver: new FakeSecretResolver({ 'Chat Secret': 'fixture-secret' }),
+    });
+
+    await expect(service.preview(['first.png', 'second.png'], 'zh-CN')).resolves.toMatchObject({
+      category: 'Experience',
+      preview: '两张论文图共同展示温度、土壤湿度及不同处理条件对研究指标的交互影响与响应差异。',
+      title: '环境梯度与处理效应图',
+    });
+    expect(http.calls).toHaveLength(4);
+    const imageCounts = http.calls.map((call) => {
+      const body = JSON.parse(call.body ?? '{}') as {
+        messages?: Array<{ content?: Array<{ type?: string }> }>;
+      };
+      return body.messages?.[0]?.content?.filter((part) => part.type === 'image_url').length ?? 0;
+    });
+    expect(imageCounts).toEqual([2, 1, 1, 0]);
+    expect(http.calls[3]?.body).toContain('<image_observations>');
+  });
+
+  it('uses strict Qwen JSON Schema without an output-token cap', async () => {
+    const http = new FixtureHTTPTransport([
+      {
+        method: 'POST',
+        outcome: {
+          kind: 'response',
+          response: {
+            body: JSON.stringify({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      category: 'Experience',
+                      preview: '图片展示了一篇研究菌根真菌扩散限制的论文摘要。',
+                      title: '菌根真菌扩散限制研究',
+                    }),
+                  },
+                },
+              ],
+            }),
+            headers: {},
+            status: 200,
+          },
+        },
+        url: 'https://ai.example/v1/chat/completions',
+      },
+    ]);
+    const service = new OpenAIVisionOCRService({
+      configuration: () => ({
+        baseURL: 'https://ai.example/v1',
+        connectionTest: null,
+        model: 'qwen3.8-flash',
+        multimodal: true,
+        preset: 'qwen',
+        secretName: 'Chat Secret',
+      }),
+      http,
+      images: {
+        read: () => Promise.resolve({ bytes: new Uint8Array([1, 2, 3]), mimeType: 'image/png' }),
+      },
+      secretResolver: new FakeSecretResolver({ 'Chat Secret': 'fixture-secret' }),
+    });
+
+    await expect(service.preview(['capture.png'], 'zh-CN')).resolves.toMatchObject({
+      category: 'Experience',
+      title: '菌根真菌扩散限制研究',
+    });
+    const request = JSON.parse(http.calls[0]?.body ?? '{}') as Record<string, unknown>;
+    expect(request).toMatchObject({
+      enable_thinking: false,
+      response_format: {
+        json_schema: {
+          name: 'selfgrow_visual_card',
+          schema: {
+            additionalProperties: false,
+            required: ['category', 'title', 'preview'],
+          },
+          strict: true,
+        },
+        type: 'json_schema',
+      },
+    });
+    expect(request).not.toHaveProperty('max_tokens');
+  });
+
   it('uses reasoning content when a compatible vision provider leaves content empty', async () => {
     const http = new FixtureHTTPTransport([
       {
@@ -360,6 +552,61 @@ describe('OpenAIVisionOCRService', () => {
     expect(http.calls).toHaveLength(2);
     expect(http.calls[1]?.body).toContain('不要重新分析图片');
     expect(http.calls[1]?.body).not.toContain('data:image/png');
+  });
+
+  it('resends the original image when format-only repair still has no valid visual card', async () => {
+    const response = (content: string) => ({
+      body: JSON.stringify({ choices: [{ message: { content } }] }),
+      headers: {},
+      status: 200,
+    });
+    const http = new FixtureHTTPTransport([
+      {
+        method: 'POST',
+        outcome: [
+          { kind: 'response', response: response('{"title":"image"}') },
+          { kind: 'response', response: response('{"category":"Research"}') },
+          {
+            kind: 'response',
+            response: response(
+              JSON.stringify({
+                category: 'Experience',
+                preview: '图片展示了一篇以菌根树岛为对象研究微生物扩散限制的论文摘要。',
+                title: '菌根树岛微生物扩散限制研究',
+              }),
+            ),
+          },
+        ],
+        url: 'https://ai.example/v1/chat/completions',
+      },
+    ]);
+    const service = new OpenAIVisionOCRService({
+      configuration: () => ({
+        baseURL: 'https://ai.example/v1',
+        connectionTest: null,
+        model: 'kimi-k2.6',
+        multimodal: true,
+        preset: 'kimi',
+        secretName: 'Chat Secret',
+      }),
+      http,
+      images: {
+        read: () => Promise.resolve({ bytes: new Uint8Array([1, 2, 3]), mimeType: 'image/png' }),
+      },
+      secretResolver: new FakeSecretResolver({ 'Chat Secret': 'fixture-secret' }),
+    });
+
+    await expect(service.preview(['capture.png'], 'zh-CN')).resolves.toMatchObject({
+      category: 'Experience',
+      preview: '图片展示了一篇以菌根树岛为对象研究微生物扩散限制的论文摘要。',
+      title: '菌根树岛微生物扩散限制研究',
+    });
+    expect(http.calls).toHaveLength(3);
+    expect(http.calls[0]?.body).toContain('data:image/png');
+    expect(http.calls[1]?.body).not.toContain('data:image/png');
+    expect(http.calls[1]?.body).toContain('<visual_result>');
+    expect(http.calls[2]?.body).toContain('data:image/png');
+    expect(http.calls[2]?.body).toContain('重新查看随本请求发送的原图');
   });
 
   it('keeps a useful natural-language visual description without uploading the image again', async () => {
