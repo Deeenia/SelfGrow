@@ -43,6 +43,13 @@ class SkillError(Exception):
     pass
 
 
+def configure_utf8_stdio() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8")
+
+
 def split_frontmatter(text: str) -> tuple[str, str]:
     match = FRONTMATTER.match(text)
     if match is None:
@@ -131,7 +138,7 @@ def initialize_repository(root: Path) -> dict[str, Any]:
     }
 
 
-def discover(root: Path) -> dict[str, Any]:
+def discover(root: Path, *, include_bodies: bool = True) -> dict[str, Any]:
     root = root.resolve()
     wiki = root.parent / "Wiki"
     if not root.is_dir() or not wiki.is_dir():
@@ -170,30 +177,47 @@ def discover(root: Path) -> dict[str, Any]:
             reference = portable_attachment(match.group(1))
             if reference is not None and local_path(root, reference).is_file():
                 attachment_paths.append(reference)
-        eligible.append(
-            {
-                "path": relative_path,
-                "content_hash": current_hash,
-                "title": first_heading(body, path.stem),
-                "source_url": scalar(block, "source_url") or "",
-                "attachment_paths": attachment_paths,
-                "image_paths": [
-                    path
-                    for path in attachment_paths
-                    if Path(path).suffix.casefold() in {".gif", ".jpeg", ".jpg", ".png", ".webp"}
-                ],
-                "markdown": body,
-            }
-        )
+        item = {
+            "path": relative_path,
+            "content_hash": current_hash,
+            "title": first_heading(body, path.stem),
+            "source_url": scalar(block, "source_url") or "",
+            "attachment_paths": attachment_paths,
+            "image_paths": [
+                path
+                for path in attachment_paths
+                if Path(path).suffix.casefold() in {".gif", ".jpeg", ".jpg", ".png", ".webp"}
+            ],
+        }
+        if include_bodies:
+            item["markdown"] = body
+        eligible.append(item)
     wiki_files = []
     for path in sorted(wiki.rglob("*.md"), key=lambda item: item.as_posix().casefold()):
-        wiki_files.append(
-            {
-                "path": f"Wiki/{path.relative_to(wiki).as_posix()}",
-                "markdown": read_text(path),
-            }
-        )
+        item = {"path": f"Wiki/{path.relative_to(wiki).as_posix()}"}
+        if include_bodies:
+            item["markdown"] = read_text(path)
+        wiki_files.append(item)
     return {"selfgrow_root": str(root), "eligible": eligible, "wiki": wiki_files, "skipped": skipped}
+
+
+def summarize_discovery(snapshot: dict[str, Any]) -> dict[str, Any]:
+    skipped_by_reason: dict[str, int] = {}
+    for item in snapshot["skipped"]:
+        reason = item["reason"]
+        skipped_by_reason[reason] = skipped_by_reason.get(reason, 0) + 1
+    return {
+        "selfgrow_root": snapshot["selfgrow_root"],
+        "eligible_count": len(snapshot["eligible"]),
+        "eligible": [
+            {key: value for key, value in item.items() if key != "markdown"}
+            for item in snapshot["eligible"]
+        ],
+        "wiki_count": len(snapshot["wiki"]),
+        "wiki_paths": [item["path"] for item in snapshot["wiki"]],
+        "skipped_count": len(snapshot["skipped"]),
+        "skipped_by_reason": skipped_by_reason,
+    }
 
 
 def first_heading(markdown: str, fallback: str) -> str:
@@ -213,12 +237,23 @@ def portable_attachment(reference: str) -> str | None:
 
 def load_plan(path: Path) -> dict[str, Any]:
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        text = sys.stdin.read() if str(path) == "-" else path.read_text(encoding="utf-8")
+        value = json.loads(text)
     except (OSError, json.JSONDecodeError) as error:
         raise SkillError("Proposal JSON cannot be read.") from error
     if not isinstance(value, dict):
         raise SkillError("Proposal must be a JSON object.")
     return value
+
+
+def plan_hash(plan: dict[str, Any]) -> str:
+    canonical = json.dumps(
+        plan,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
 
 
 def string_field(value: dict[str, Any], key: str, *, allow_empty: bool = False) -> str:
@@ -355,6 +390,7 @@ def validate_plan(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
         promoted.append(destination)
 
     return {
+        "plan_hash": plan_hash(plan),
         "raws": [raw["path"] for raw in raw_entries],
         "creates": creates,
         "updates": updates,
@@ -1295,7 +1331,14 @@ def self_test() -> None:
             ]
         )
         (root / "Knowledge/Raw.md").write_bytes(raw.encode("utf-8"))
-        assert len(discover(root)["eligible"]) == 1
+        snapshot = discover(root)
+        assert len(snapshot["eligible"]) == 1
+        bodyless = discover(root, include_bodies=False)
+        assert all("markdown" not in item for item in bodyless["wiki"])
+        compact = summarize_discovery(bodyless)
+        assert compact["eligible_count"] == 1
+        assert compact["eligible"][0]["title"] == "Raw"
+        assert "markdown" not in compact["eligible"][0]
         plan = {
             "raws": [
                 {
@@ -1320,6 +1363,8 @@ def self_test() -> None:
             "promoted_assets": [],
             "index_markdown": "# SelfGrow Wiki\n\n## 概念\n\n[[Test]] — 结论。\n",
         }
+        validated = validate_plan(root, plan)
+        assert re.fullmatch(r"[0-9a-f]{64}", validated["plan_hash"])
         original_replace = os.replace
         transient_failures = 0
 
@@ -1337,6 +1382,7 @@ def self_test() -> None:
             os.replace = original_replace
         assert transient_failures == 1
         assert result["completed_raws"] == 1
+        assert result["plan_hash"] == validated["plan_hash"]
         page_path = wiki / "Concepts/Test.md"
         page_path.write_bytes(page_path.read_bytes() + "用户原字节。\r\n".encode("utf-8"))
         before = protected_suffix(read_text(page_path)).encode("utf-8")
@@ -1563,8 +1609,12 @@ def parser() -> argparse.ArgumentParser:
     for name in ["init", "discover", "validate", "apply", "maintain", "clean"]:
         command = commands.add_parser(name)
         command.add_argument("--selfgrow-root", required=True, type=Path)
+        if name == "discover":
+            command.add_argument("--summary", action="store_true")
         if name in {"validate", "apply"}:
             command.add_argument("--plan", required=True, type=Path)
+        if name == "apply":
+            command.add_argument("--approved-plan-hash")
         if name in {"init", "apply", "clean"}:
             command.add_argument("--approved", action="store_true")
     commands.add_parser("bootstrap").add_argument("--selfgrow-root", required=True, type=Path)
@@ -1602,6 +1652,7 @@ def parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    configure_utf8_stdio()
     arguments = parser().parse_args()
     try:
         if arguments.command == "self-test":
@@ -1652,8 +1703,11 @@ def main() -> int:
                 raise SkillError("Project unlinking requires explicit --approved.")
             result = unlink_project(arguments.workspace_root, state_path)
         elif arguments.command == "discover":
-
-            result = discover(arguments.selfgrow_root)
+            snapshot = discover(
+                arguments.selfgrow_root,
+                include_bodies=not arguments.summary,
+            )
+            result = summarize_discovery(snapshot) if arguments.summary else snapshot
         elif arguments.command == "bootstrap":
             result = bootstrap(arguments.selfgrow_root)
         elif arguments.command == "maintain":
@@ -1669,6 +1723,10 @@ def main() -> int:
             else:
                 if not arguments.approved:
                     raise SkillError("Apply requires explicit --approved after user confirmation.")
+                if arguments.approved_plan_hash != plan_hash(plan):
+                    raise SkillError(
+                        "Apply requires the exact plan_hash returned by validate."
+                    )
                 result = apply_plan(arguments.selfgrow_root, plan)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0

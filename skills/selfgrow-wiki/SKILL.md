@@ -49,15 +49,26 @@ Never infer the association or evidence scope. Show the workspace, target Raw ca
 
 ## Discover selected work
 
-Run:
+For a count or title-list request, run the compact discovery and stop after reporting
+the eligible entries:
 
 ```text
-python SCRIPT discover --selfgrow-root ROOT
+python SCRIPT discover --selfgrow-root ROOT --summary
 ```
 
-Process only entries under `eligible`. The script recomputes each body hash and requires selected, queued, and approved hash equal to current hash; there is no second queue file. Report the eligible count and titles before building a proposal.
+The compact result omits Raw and Wiki bodies. Process only entries under `eligible`.
+The script recomputes each body hash and requires selected, queued, and approved hash
+equal to current hash; there is no second queue file. Report the eligible count and
+titles before building a proposal. Do not read full Raw cards when the user only asks
+for discovery.
 
-Read each eligible complete Raw body, including `原始材料` / `Source Material`; use `筛选预览` / `Selection Preview` and recommendation scores only as navigation aids. Inspect every retained image visually. Revisit HTTP(S) sources when possible. If a source is unavailable, use only retained evidence and label it `来源当前无法重新验证`.
+When building a proposal, use the compact result as the manifest, then read each
+eligible file directly and completely, including `原始材料` / `Source Material`.
+Read current Wiki files directly from the returned `wiki_paths`; avoid printing the
+full discovery JSON because large bodies can be truncated. Use `筛选预览` /
+`Selection Preview` and recommendation scores only as navigation aids. Inspect every
+retained image visually. Revisit HTTP(S) sources when possible. If a source is
+unavailable, use only retained evidence and label it `来源当前无法重新验证`.
 
 ## Build the distillation proposal
 
@@ -102,17 +113,26 @@ Validate without writing:
 python SCRIPT validate --selfgrow-root ROOT --plan PLAN_JSON
 ```
 
-Present exact Raw inputs, creates, updates, relationship changes, promoted assets, unavailable sources, and experience evidence. Ask for explicit approval. Before approval, do not change Wiki files, Raw frontmatter, or attachments.
+Use `--plan -` to read JSON from standard input when a temporary file is
+inconvenient. Present the returned `plan_hash` with the exact Raw inputs, creates,
+updates, relationship changes, promoted assets, unavailable sources, and experience
+evidence. Ask for explicit approval of that hash. Before approval, do not change Wiki
+files, Raw frontmatter, or attachments.
 
 ## Apply approved distillation
 
 After approval for the displayed proposal only:
 
 ```text
-python SCRIPT apply --selfgrow-root ROOT --plan PLAN_JSON --approved
+python SCRIPT apply --selfgrow-root ROOT --plan PLAN_JSON --approved \
+  --approved-plan-hash PLAN_HASH
 ```
 
-The script rechecks eligibility, contains paths, preserves `## 我的经验` byte-for-byte, applies Wiki/Index/Log/Raw metadata transactionally, and rolls back handled failures. Delete the temporary plan after success or rejection. Report created/updated pages, assets, completed Raw count, and unavailable-source boundaries.
+The script refuses a plan whose canonical hash differs from the validated and approved
+hash. It rechecks eligibility, contains paths, preserves `## 我的经验` byte-for-byte,
+applies Wiki/Index/Log/Raw metadata transactionally, and rolls back handled failures.
+Delete the temporary plan after success or rejection. Report created/updated pages,
+assets, completed Raw count, and unavailable-source boundaries.
 
 ## Update structure or preferences
 
