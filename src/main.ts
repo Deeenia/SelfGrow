@@ -1,4 +1,4 @@
-import { MarkdownView, Notice, Platform, Plugin, TFile, TFolder } from 'obsidian';
+import { loadPdfJs, MarkdownView, Notice, Platform, Plugin, TFile, TFolder } from 'obsidian';
 import { ChatConnectionService, ModelCatalogService, type ModelCatalogEntry } from './ai';
 import { SelfGrowError, selfGrowID, vaultPath, type RawCategory, type VaultPath } from './domain';
 import {
@@ -6,8 +6,10 @@ import {
   ConfiguredPlatformProvider,
   ExtractionCapabilityService,
   LinkSupplementExtractor,
+  LocalDocumentExtractor,
   OpenAIVisionOCRService,
   PriorityPlatformExtractor,
+  type PDFJSLike,
 } from './extraction';
 import { createObsidianArticleDocumentProcessor } from './extraction/obsidian-article-document-processor';
 import {
@@ -22,6 +24,7 @@ import {
   captureTokenAt,
   InboxOperationalService,
   InboxReconciler,
+  isSupportedCaptureDocumentName,
   looksLikeGitHubName,
 } from './inbox';
 import {
@@ -100,6 +103,10 @@ export default class SelfGrowPlugin extends Plugin implements SelfGrowSettingsHo
           openReview: () => this.#openReview(),
           service: {
             createFolder: (name) => this.#createCollectionFolder(name),
+            documentAIRecipient: () => ({
+              model: this.#settings.chat.model,
+              provider: this.#settings.chat.preset,
+            }),
             listFolders: () => this.#collectionFolders(),
             list: (language) => this.#inbox?.list(language) ?? Promise.resolve([]),
             permanentlyDelete: (id) => this.#requireInbox().permanentlyDelete(id),
@@ -406,7 +413,20 @@ export default class SelfGrowPlugin extends Plugin implements SelfGrowSettingsHo
         secretResolver,
       });
       this.#coordinator = new ForegroundProcessingCoordinator({
-        extractor: new LinkSupplementExtractor(linkExtractor, ocr),
+        extractor: new LocalDocumentExtractor(
+          new LinkSupplementExtractor(linkExtractor, ocr),
+          {
+            readBinary: async (rawPath) => {
+              const file = inboxAttachmentFile(this.app, pathGuard, rawPath);
+              return new Uint8Array(await this.app.vault.readBinary(file));
+            },
+            readText: async (rawPath) => {
+              const file = inboxAttachmentFile(this.app, pathGuard, rawPath);
+              return this.app.vault.read(file);
+            },
+          },
+          async () => (await loadPdfJs()) as PDFJSLike,
+        ),
         generator: this.#recognitionGenerator,
         inbox: this.#inbox,
         language: this.#settings.language,
@@ -623,6 +643,7 @@ export default class SelfGrowPlugin extends Plugin implements SelfGrowSettingsHo
       throw new Error('Capture input is too large.');
     }
     const analysis = analyzeManualCapture({
+      documentCount: input.files.filter((file) => isSupportedCaptureDocumentName(file.name)).length,
       imageCount: input.files.filter((file) => file.type.startsWith('image/')).length,
       note: input.note,
       shareText: input.url,
@@ -641,6 +662,13 @@ export default class SelfGrowPlugin extends Plugin implements SelfGrowSettingsHo
       input.files.length === 0
     ) {
       throw new Error('Capture content is empty.');
+    }
+    const hasSupportedDocuments = input.files.some((file) =>
+      isSupportedCaptureDocumentName(file.name),
+    );
+    if (hasSupportedDocuments && input.documentAIConsent !== 'summarize') {
+      await this.#createDirectMaterialDocument(input, dependencies);
+      return;
     }
     const routedInput: ManualCaptureInput = {
       ...input,
@@ -692,6 +720,7 @@ export default class SelfGrowPlugin extends Plugin implements SelfGrowSettingsHo
       await dependencies.frontmatter.process(capturePath, (current) => ({
         ...current,
         capture_attachments: attachmentPaths,
+        ...(hasSupportedDocuments ? { capture_document_ai_authorized: true } : {}),
         capture_folder: collectionFolder,
         capture_images: imagePaths,
         capture_method: 'shared_text',
@@ -949,6 +978,16 @@ function attachmentFileName(idToken: string, index: number, file: File): string 
     .replace(/^[ .]+|[ .]+$/g, '')
     .slice(-120);
   return `${idToken}-${index + 1}-${name || 'attachment'}`;
+}
+
+function inboxAttachmentFile(app: Plugin['app'], pathGuard: PathGuard, rawPath: string): TFile {
+  const path = pathGuard.assertDescendant(rawPath);
+  if (!path.startsWith(`${pathGuard.join('Inbox', 'Attachments')}/`)) {
+    throw new Error('Capture document is outside Inbox attachments.');
+  }
+  const file = app.vault.getAbstractFileByPath(path);
+  if (!(file instanceof TFile)) throw new Error('Capture document does not exist.');
+  return file;
 }
 
 function normalizeCollectionFolderName(value: string): string {

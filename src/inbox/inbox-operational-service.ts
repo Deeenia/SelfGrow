@@ -331,6 +331,14 @@ function localizedExtractionError(code: string | undefined, language: Language):
         : 'The description was insufficient and no usable subtitles were available.';
     case 'main_text_missing':
       return chinese ? '页面没有提供可读取的正文。' : 'The page exposed no readable main text.';
+    case 'document_text_unavailable':
+      return chinese
+        ? '原文件已保留，但未取得可总结的正文；扫描版 PDF 暂时需要 OCR。'
+        : 'The original file was retained, but no text was available to summarize; scanned PDFs currently require OCR.';
+    case 'document_ai_authorization_required':
+      return chinese
+        ? '该文档尚未授权发送提取正文，请重新提交并选择“授权并总结”。'
+        : 'This document was not authorized for extracted-text upload. Submit it again and choose “Authorize and summarize.”';
     case 'platform_access_blocked':
       return chinese
         ? '平台阻止了匿名公开访问；请打开原链接查看。插件不会读取账号或绕过验证。'

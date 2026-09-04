@@ -3,6 +3,7 @@ export * from './captured-text-generic-extractor';
 export * from './completeness';
 export * from './configured-platform-provider';
 export * from './link-supplement-extractor';
+export * from './local-document-extractor';
 export * from './extraction-capability-service';
 export * from './priority-platform-extractor';
 export * from './types';

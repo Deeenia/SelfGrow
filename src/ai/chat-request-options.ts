@@ -1,6 +1,7 @@
 import type { EndpointSettings } from '../settings';
 
-export type StructuredOutputKind = 'raw_card' | 'recommendation' | 'visual_card';
+export type StructuredOutputKind =
+  'document_sections' | 'raw_card' | 'recommendation' | 'visual_card';
 
 /**
  * Requests the fastest non-thinking mode exposed by each supported provider.
@@ -68,6 +69,29 @@ export function usesStrictStructuredOutput(
 }
 
 function structuredOutputSchema(kind: StructuredOutputKind): Record<string, unknown> {
+  if (kind === 'document_sections') {
+    return {
+      additionalProperties: false,
+      properties: {
+        sections: {
+          items: {
+            additionalProperties: false,
+            properties: {
+              details: { maxLength: 1200, minLength: 20, type: 'string' },
+              title: { maxLength: 60, minLength: 2, type: 'string' },
+            },
+            required: ['title', 'details'],
+            type: 'object',
+          },
+          maxItems: 6,
+          minItems: 1,
+          type: 'array',
+        },
+      },
+      required: ['sections'],
+      type: 'object',
+    };
+  }
   if (kind === 'recommendation') {
     return {
       additionalProperties: false,

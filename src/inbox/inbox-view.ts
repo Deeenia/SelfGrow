@@ -9,7 +9,11 @@ import {
 } from '../domain';
 import type { GitHubCandidate, GitHubNameResolution } from '../github';
 import type { InboxOperationalItem, InboxProgress } from './inbox-operational-service';
-import { analyzeManualCapture, looksLikeGitHubName } from './manual-capture';
+import {
+  analyzeManualCapture,
+  isSupportedCaptureDocumentName,
+  looksLikeGitHubName,
+} from './manual-capture';
 
 export const INBOX_VIEW_TYPE = 'selfgrow-inbox';
 
@@ -23,6 +27,7 @@ export interface RecognitionSuggestion {
 
 export interface InboxViewService {
   createFolder(name: string): Promise<string>;
+  documentAIRecipient(): { model: string; provider: string };
   listFolders(): Promise<readonly string[]>;
   list(language: Language): Promise<InboxOperationalItem[]>;
   permanentlyDelete(id: SelfGrowID): Promise<void>;
@@ -37,6 +42,7 @@ export interface InboxViewService {
 }
 
 export interface ManualCaptureInput {
+  documentAIConsent?: 'preserve_only' | 'summarize';
   files: readonly File[];
   folder: string;
   note: string;
@@ -189,6 +195,8 @@ export class InboxView extends ItemView {
     const routeHint = noteField.createSpan({ cls: 'selfgrow-capture-route' });
     const updateRouteHint = (): void => {
       const analysis = analyzeManualCapture({
+        documentCount: this.#draftFiles.filter((file) => isSupportedCaptureDocumentName(file.name))
+          .length,
         imageCount: this.#draftFiles.filter((file) => file.type.startsWith('image/')).length,
         note: note.value,
         shareText: url.value,
@@ -305,6 +313,8 @@ export class InboxView extends ItemView {
   async #submitCapture(): Promise<void> {
     const copy = COPY[this.#dependencies.language()];
     const analysis = analyzeManualCapture({
+      documentCount: this.#draftFiles.filter((file) => isSupportedCaptureDocumentName(file.name))
+        .length,
       imageCount: this.#draftFiles.filter((file) => file.type.startsWith('image/')).length,
       note: this.#draftNote,
       shareText: this.#draftURL,
@@ -321,6 +331,22 @@ export class InboxView extends ItemView {
     ) {
       new Notice(copy.contentRequired);
       return;
+    }
+    const documentFiles = this.#draftFiles.filter((file) =>
+      isSupportedCaptureDocumentName(file.name),
+    );
+    let documentAIConsent: ManualCaptureInput['documentAIConsent'];
+    if (documentFiles.length > 0) {
+      const modal = new DocumentAIAuthorizationModal(
+        this.app,
+        this.#dependencies.language(),
+        documentFiles.map((file) => file.name),
+        this.#dependencies.service.documentAIRecipient(),
+      );
+      modal.open();
+      const decision = await modal.choose();
+      if (decision === null) return;
+      documentAIConsent = decision;
     }
     this.#submitting = true;
     await this.refresh();
@@ -364,6 +390,7 @@ export class InboxView extends ItemView {
         }
       }
       await this.#dependencies.service.submitCapture({
+        ...(documentAIConsent === undefined ? {} : { documentAIConsent }),
         files: [...this.#draftFiles],
         folder: this.#draftCategory,
         note: this.#draftNote.trim(),
@@ -465,6 +492,73 @@ export class InboxView extends ItemView {
     } catch {
       new Notice(COPY[this.#dependencies.language()].actionFailed);
     }
+  }
+}
+
+type DocumentAIConsent = NonNullable<ManualCaptureInput['documentAIConsent']>;
+
+class DocumentAIAuthorizationModal extends Modal {
+  readonly #files: readonly string[];
+  readonly #language: Language;
+  readonly #recipient: { model: string; provider: string };
+  #resolve: ((decision: DocumentAIConsent | null) => void) | null = null;
+
+  constructor(
+    app: InboxView['app'],
+    language: Language,
+    files: readonly string[],
+    recipient: { model: string; provider: string },
+  ) {
+    super(app);
+    this.#language = language;
+    this.#files = files;
+    this.#recipient = recipient;
+  }
+
+  override onOpen(): void {
+    const copy = COPY[this.#language];
+    this.contentEl.createEl('h2', { text: copy.documentAITitle });
+    this.contentEl.createEl('p', {
+      text: copy.documentAIBody
+        .replace('{provider}', this.#recipient.provider || copy.documentAIUnknown)
+        .replace('{model}', this.#recipient.model || copy.documentAIUnknown),
+    });
+    const list = this.contentEl.createEl('ul');
+    for (const file of this.#files) list.createEl('li', { text: file });
+    this.contentEl.createEl('p', { text: copy.documentAICost });
+    new Setting(this.contentEl)
+      .addButton((button) =>
+        button.setButtonText(copy.documentAIPreserve).onClick(() => {
+          this.#finish('preserve_only');
+        }),
+      )
+      .addButton((button) =>
+        button
+          .setButtonText(copy.documentAIAuthorize)
+          .setCta()
+          .onClick(() => {
+            this.#finish('summarize');
+          }),
+      );
+  }
+
+  override onClose(): void {
+    this.#resolve?.(null);
+    this.#resolve = null;
+    this.contentEl.empty();
+  }
+
+  choose(): Promise<DocumentAIConsent | null> {
+    return new Promise((resolve) => {
+      this.#resolve = resolve;
+    });
+  }
+
+  #finish(decision: DocumentAIConsent): void {
+    const resolve = this.#resolve;
+    this.#resolve = null;
+    resolve?.(decision);
+    this.close();
   }
 }
 
@@ -674,6 +768,14 @@ const COPY = {
     confirmTitle: 'Permanently delete capture?',
     contentRequired: 'Add a link, body, or local file.',
     delete: 'Permanently delete',
+    documentAIAuthorize: 'Authorize and summarize',
+    documentAIBody:
+      'SelfGrow will extract the complete document text and send it to {provider} / {model}. The original file bytes are not sent. This authorization applies only to this capture.',
+    documentAICost:
+      'Long documents may require several AI requests and may incur provider usage charges.',
+    documentAIPreserve: 'Save original only',
+    documentAITitle: 'Authorize document summarization?',
+    documentAIUnknown: 'not configured',
     empty: 'No pending captures.',
     file: 'File',
     fileHelp: 'Add up to 20 images or local files · 25 MB each · 100 MB total.',
@@ -689,7 +791,7 @@ const COPY = {
     openReview: 'Review',
     removeImage: 'Remove',
     retry: 'Retry',
-    routeAI: 'Raw evidence · text/link, or visual preview · image only',
+    routeAI: 'Raw evidence · text/link/document, or visual preview · image only',
     routeDirect: 'Direct Raw · files and source link preserved',
     routeDirectNoLink: 'Direct Raw · local files preserved',
     submit: 'Save',
@@ -713,6 +815,13 @@ const COPY = {
     confirmTitle: '永久删除捕获？',
     contentRequired: '请添加链接、正文或本地文件。',
     delete: '永久删除',
+    documentAIAuthorize: '授权并总结',
+    documentAIBody:
+      'SelfGrow 将提取完整文档正文并发送至 {provider} / {model}；不会发送原始文件二进制。本次授权仅对这一次收集有效。',
+    documentAICost: '长文档可能拆分为多次 AI 请求，并产生相应的服务商用量或费用。',
+    documentAIPreserve: '仅保存原文件',
+    documentAITitle: '是否授权文档总结？',
+    documentAIUnknown: '尚未配置',
     empty: '没有待处理的捕获。',
     file: '文件',
     fileHelp: '最多添加 20 张图片或本地文件 · 单个 25 MB · 总计 100 MB。',
@@ -727,7 +836,7 @@ const COPY = {
     openReview: '筛选',
     removeImage: '移除',
     retry: '重试',
-    routeAI: 'Raw 原始材料 · 文字/链接；视觉预览 · 仅图片',
+    routeAI: 'Raw 原始材料 · 文字/链接/文档；视觉预览 · 仅图片',
     routeDirect: '直接保存 Raw · 保留文件和来源链接',
     routeDirectNoLink: '直接保存 Raw · 保留本地文件',
     submit: '保存',

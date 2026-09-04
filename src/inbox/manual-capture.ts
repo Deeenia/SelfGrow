@@ -1,4 +1,5 @@
 export interface ManualCaptureAnalysisInput {
+  documentCount?: number;
   imageCount: number;
   note: string;
   shareText: string;
@@ -27,12 +28,13 @@ export function analyzeManualCapture(input: ManualCaptureAnalysisInput): ManualC
   const characterCount = [...materialText].length;
   const onlyLink = located !== null && characterCount === 0 && input.imageCount === 0;
   const onlyImages = located === null && characterCount === 0 && input.imageCount > 0;
+  const hasDocuments = (input.documentCount ?? 0) > 0;
   const hasText = characterCount > 0;
 
   return {
     characterCount,
     materialText,
-    route: hasText || onlyLink || onlyImages ? 'ai' : 'direct',
+    route: hasText || onlyLink || onlyImages || hasDocuments ? 'ai' : 'direct',
     sourceURL: located?.value ?? null,
   };
 }
@@ -50,6 +52,10 @@ export function looksLikeGitHubName(value: string): boolean {
   const name = value.trim();
   if (name.length < 2 || name.length > 100 || name.includes(' ')) return false;
   return /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9._-]+)?$/.test(name);
+}
+
+export function isSupportedCaptureDocumentName(value: string): boolean {
+  return /\.(?:pdf|md|markdown)$/iu.test(value.trim());
 }
 
 function firstHTTPURL(value: string): LocatedURL | null {

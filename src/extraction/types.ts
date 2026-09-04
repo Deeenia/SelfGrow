@@ -10,13 +10,16 @@ import type { NormalizedURL } from '../url';
 
 export type ExtractionRoute =
   | 'captured_text'
+  | 'local_document'
   | 'local_article'
   | 'anonymous_platform'
   | 'third_party_provider'
   | 'visual_preview';
 
 export interface ExtractionRequest {
+  attachmentPaths?: readonly string[];
   capturedText?: string;
+  documentAIAuthorized?: boolean;
   id: SelfGrowID;
   imagePaths?: readonly string[];
   language: Language;
@@ -36,6 +39,7 @@ export interface ExtractedContent {
   body: string;
   bodyKind: 'article' | 'transcript';
   canonicalURL?: string;
+  documentKind?: 'academic_paper' | 'general_document' | 'markdown';
   finalURL: string;
   github?: GitHubDiagnostics;
   platform: Platform;

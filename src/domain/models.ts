@@ -85,6 +85,7 @@ export interface InboxCapture {
   captureTitle?: string;
   capturedText?: string;
   captureMethod: CaptureMethod;
+  documentAIAuthorized?: boolean;
   id: SelfGrowID;
   imagePaths?: readonly VaultPath[];
   importedAt: string;

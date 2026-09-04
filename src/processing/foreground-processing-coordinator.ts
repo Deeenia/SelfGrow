@@ -107,7 +107,13 @@ export class ForegroundProcessingCoordinator {
         : await this.#dependencies.urls.normalize(capture.sourceURL);
       await this.#advance(capture, 'extracting');
       const extraction = await this.#dependencies.extractor.extract({
+        ...(capture.attachmentPaths === undefined
+          ? {}
+          : { attachmentPaths: capture.attachmentPaths }),
         ...(capture.capturedText === undefined ? {} : { capturedText: capture.capturedText }),
+        ...(capture.documentAIAuthorized === undefined
+          ? {}
+          : { documentAIAuthorized: capture.documentAIAuthorized }),
         id: capture.id,
         ...(capture.imagePaths === undefined ? {} : { imagePaths: capture.imagePaths }),
         language: this.#dependencies.language,

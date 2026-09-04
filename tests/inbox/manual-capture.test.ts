@@ -95,6 +95,15 @@ describe('manual capture analysis', () => {
   it('routes image-only input through multimodal preview generation', () => {
     expect(analyzeManualCapture({ imageCount: 1, note: '', shareText: '' }).route).toBe('ai');
   });
+
+  it.each(['paper.pdf', 'notes.md', 'notes.markdown'])(
+    'routes the supported local document %s through AI extraction',
+    () => {
+      expect(
+        analyzeManualCapture({ documentCount: 1, imageCount: 0, note: '', shareText: '' }).route,
+      ).toBe('ai');
+    },
+  );
 });
 
 describe('looksLikeGitHubName', () => {

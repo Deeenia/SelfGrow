@@ -11,17 +11,21 @@ import {
 const SECTION_LABELS = {
   en: {
     coreKnowledge: 'Source Material',
+    originalFiles: 'Original Files',
     personalNote: 'My Notes',
     source: 'Source',
     sourceDirect: 'Direct paste',
+    sourceFile: 'Local file',
     sourceLink: 'Open source',
     summary: 'Selection Preview',
   },
   'zh-CN': {
     coreKnowledge: '原始材料',
+    originalFiles: '原始文件',
     personalNote: '我的笔记',
     source: '来源',
     sourceDirect: '直接粘贴',
+    sourceFile: '本地文件',
     sourceLink: '打开原文',
     summary: '筛选预览',
   },
@@ -58,10 +62,20 @@ export function parseKnowledgeNoteContent(
   const headings = tree.children.filter(isHeading).map(locateHeading);
   const labels = SECTION_LABELS[language];
   const legacy = LEGACY_SECTION_LABELS[language];
+  const documentLabels = [
+    labels.summary,
+    labels.coreKnowledge,
+    labels.originalFiles,
+    labels.personalNote,
+    labels.source,
+  ];
   const currentLabels = [labels.summary, labels.coreKnowledge, labels.personalNote, labels.source];
   const legacyLabels = [legacy.summary, legacy.coreKnowledge, labels.personalNote, labels.source];
+  const documentHeadings = locateSections(headings, documentLabels);
   const sectionHeadings =
-    locateSections(headings, currentLabels) ?? locateSections(headings, legacyLabels);
+    documentHeadings ??
+    locateSections(headings, currentLabels) ??
+    locateSections(headings, legacyLabels);
   const summaryHeading = sectionHeadings?.[0];
   const titleHeadings = headings.filter(
     (heading) =>
@@ -75,12 +89,20 @@ export function parseKnowledgeNoteContent(
     titleHeading === undefined ||
     titleHeading.text.length === 0 ||
     sectionHeadings === undefined ||
-    hasSectionConflict(headings, sectionHeadings, [...currentLabels, ...legacyLabels])
+    hasSectionConflict(headings, sectionHeadings, [
+      ...documentLabels,
+      ...currentLabels,
+      ...legacyLabels,
+    ])
   ) {
     throw sectionConflict();
   }
 
-  const [resolvedSummaryHeading, coreHeading, personalHeading, sourceHeading] = sectionHeadings;
+  const resolvedSummaryHeading = sectionHeadings[0];
+  const coreHeading = sectionHeadings[1];
+  const originalFilesHeading = documentHeadings?.[2];
+  const personalHeading = sectionHeadings[documentHeadings === undefined ? 2 : 3];
+  const sourceHeading = sectionHeadings[documentHeadings === undefined ? 3 : 4];
   if (
     resolvedSummaryHeading === undefined ||
     coreHeading === undefined ||
@@ -92,15 +114,29 @@ export function parseKnowledgeNoteContent(
   if (titleHeading.start >= resolvedSummaryHeading.start) throw sectionConflict();
 
   const summaryMarkdown = sectionContent(markdown, resolvedSummaryHeading.end, coreHeading.start);
-  const attachmentPaths = parseAttachmentPaths(
-    sectionContent(markdown, titleHeading.end, resolvedSummaryHeading.start),
-  );
+  const attachmentPaths = [
+    ...parseAttachmentPaths(
+      sectionContent(markdown, titleHeading.end, resolvedSummaryHeading.start),
+    ),
+    ...(originalFilesHeading === undefined
+      ? []
+      : parseAttachmentPaths(
+          sectionContent(markdown, originalFilesHeading.end, personalHeading.start),
+        )),
+  ];
   const personalNoteMarkdown = sectionContent(markdown, personalHeading.end, sourceHeading.start);
-  const coreKnowledge = parseCoreKnowledge(markdown, headings, coreHeading, personalHeading);
+  const coreKnowledge = parseCoreKnowledge(
+    markdown,
+    headings,
+    coreHeading,
+    originalFilesHeading ?? personalHeading,
+  );
   const sourceMarkdown = sectionContent(markdown, sourceHeading.end, markdown.length);
   const sourceURL =
     /^\[[^\]\n]+\]\(<([^>\n]+)>\)$/.exec(sourceMarkdown.trim())?.[1] ??
-    (sourceMarkdown.trim() === labels.sourceDirect ? 'selfgrow:direct' : undefined);
+    (sourceMarkdown.trim() === labels.sourceDirect || sourceMarkdown.trim() === labels.sourceFile
+      ? 'selfgrow:direct'
+      : undefined);
 
   if (
     summaryMarkdown.trim().length === 0 ||
@@ -130,7 +166,13 @@ export function serializeKnowledgeNoteContent(content: KnowledgeNoteContent): st
         `### ${singleLine(item.title)}\n\n${item.explanationMarkdown.replace(/^\n+|\n+$/g, '')}`,
     )
     .join('\n\n');
-  const images = (content.attachmentPaths ?? content.imagePaths)
+  const attachments = content.attachmentPaths ?? content.imagePaths;
+  const images = attachments
+    .filter(isImagePath)
+    .map((path) => `![[${path}]]`)
+    .join('\n\n');
+  const originalFiles = attachments
+    .filter((path) => !isImagePath(path))
     .map((path) => `![[${path}]]`)
     .join('\n\n');
 
@@ -150,8 +192,15 @@ export function serializeKnowledgeNoteContent(content: KnowledgeNoteContent): st
     ...(images.length === 0 ? [] : [images]),
     `## ${labels.summary}\n\n${withoutBoundaryNewlines(content.summaryMarkdown)}`,
     `## ${labels.coreKnowledge}\n\n${core}`,
+    ...(originalFiles.length === 0 ? [] : [`## ${labels.originalFiles}\n\n${originalFiles}`]),
     `## ${labels.personalNote}\n\n${withoutBoundaryNewlines(content.personalNoteMarkdown)}`,
-    `## ${labels.source}\n\n${content.sourceURL.startsWith('selfgrow:text:') ? labels.sourceDirect : `[${labels.sourceLink}](<${content.sourceURL}>)`}`,
+    `## ${labels.source}\n\n${
+      content.sourceURL.startsWith('selfgrow:text:')
+        ? originalFiles.length > 0
+          ? labels.sourceFile
+          : labels.sourceDirect
+        : `[${labels.sourceLink}](<${content.sourceURL}>)`
+    }`,
   ]
     .join('\n\n')
     .concat('\n');
@@ -177,23 +226,21 @@ function parseCoreKnowledge(
   markdown: string,
   headings: readonly LocatedHeading[],
   coreHeading: LocatedHeading,
-  personalHeading: LocatedHeading,
+  boundaryHeading: LocatedHeading,
 ): CoreKnowledgeItem[] {
-  const itemHeadings = headings
-    .filter(
-      (heading) =>
-        heading.node.depth === 3 &&
-        heading.start > coreHeading.end &&
-        heading.start < personalHeading.start,
-    )
-    .slice(0, 1);
+  const itemHeadings = headings.filter(
+    (heading) =>
+      heading.node.depth === 3 &&
+      heading.start > coreHeading.end &&
+      heading.start < boundaryHeading.start,
+  );
 
   return itemHeadings.map((heading, index) => {
     const next = itemHeadings[index + 1];
     const explanationMarkdown = sectionContent(
       markdown,
       heading.end,
-      next?.start ?? personalHeading.start,
+      next?.start ?? boundaryHeading.start,
     );
     if (heading.text.length === 0 || explanationMarkdown.trim().length === 0) {
       throw sectionConflict();
@@ -205,7 +252,7 @@ function parseCoreKnowledge(
 function locateSections(
   headings: readonly LocatedHeading[],
   labels: readonly string[],
-): [LocatedHeading, LocatedHeading, LocatedHeading, LocatedHeading] | undefined {
+): LocatedHeading[] | undefined {
   const result: LocatedHeading[] = [];
   let cursor = -1;
   for (const label of labels) {
@@ -217,7 +264,7 @@ function locateSections(
     result.push(heading);
     cursor = heading.start;
   }
-  return result as [LocatedHeading, LocatedHeading, LocatedHeading, LocatedHeading];
+  return result;
 }
 
 function hasSectionConflict(
@@ -229,9 +276,9 @@ function hasSectionConflict(
   const occurrences = headings.filter(
     (heading) => heading.node.depth === 2 && known.has(heading.text),
   );
-  if (occurrences.length !== 4) return true;
-  const personal = sections[2];
-  const source = sections[3];
+  if (occurrences.length !== sections.length) return true;
+  const personal = sections[sections.length - 2];
+  const source = sections[sections.length - 1];
   if (personal === undefined || source === undefined) return true;
   return headings.some(
     (heading) =>

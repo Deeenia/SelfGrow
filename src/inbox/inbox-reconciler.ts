@@ -24,6 +24,7 @@ const timestampSchema = z
 const inboxFrontmatterSchema = z.strictObject({
   attempt_count: z.number().int().nonnegative().optional(),
   capture_method: z.enum(CAPTURE_METHODS).optional(),
+  capture_document_ai_authorized: z.boolean().optional(),
   capture_images: z.array(z.string().min(1)).max(20).optional(),
   capture_attachments: z.array(z.string().min(1)).max(20).optional(),
   capture_folder: z.string().min(1).optional(),
@@ -36,6 +37,7 @@ const inboxFrontmatterSchema = z.strictObject({
     .enum([
       '',
       'captured_text',
+      'local_document',
       'local_article',
       'anonymous_platform',
       'third_party_provider',
@@ -309,6 +311,9 @@ export class InboxReconciler {
         ? { attachmentPaths: parsed.data.capture_attachments.map((value) => value as VaultPath) }
         : {}),
       captureMethod,
+      ...(parsed.success && parsed.data.capture_document_ai_authorized !== undefined
+        ? { documentAIAuthorized: parsed.data.capture_document_ai_authorized }
+        : {}),
       ...(parsed.success && parsed.data.capture_folder !== undefined
         ? { collectionFolder: parsed.data.capture_folder }
         : {}),

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { type Language } from '../../src/domain';
+import { vaultPath, type Language } from '../../src/domain';
 import { parseKnowledgeNoteContent, serializeKnowledgeNoteContent } from '../../src/knowledge';
 
 const fixturesRoot = resolve(
@@ -61,6 +61,61 @@ describe('Task-010 knowledge note parser and serializer', () => {
 
     expect(parsed.personalNoteMarkdown).toBe(
       '- Keep this user list unchanged.\n\n```markdown\n## Source\nThis fenced heading is user text.\n```',
+    );
+  });
+
+  it('places non-image source files after the summary and technical material', () => {
+    const markdown = serializeKnowledgeNoteContent({
+      attachmentPaths: [
+        vaultPath('Raw/Attachments/figure.png'),
+        vaultPath('Raw/Attachments/paper.pdf'),
+      ],
+      coreKnowledge: [{ explanationMarkdown: 'Methods and results.', title: 'Technical details' }],
+      imagePaths: [vaultPath('Raw/Attachments/figure.png')],
+      outputLanguage: 'en',
+      personalNoteMarkdown: '',
+      sourceURL: 'selfgrow:text:fixture',
+      summaryMarkdown: 'A concise paper summary.',
+      title: 'Fixture paper',
+    });
+
+    expect(markdown.indexOf('## Selection Preview')).toBeLessThan(
+      markdown.indexOf('### Technical details'),
+    );
+    expect(markdown.indexOf('### Technical details')).toBeLessThan(
+      markdown.indexOf('## Original Files'),
+    );
+    expect(markdown.indexOf('## Original Files')).toBeLessThan(
+      markdown.indexOf('![[Raw/Attachments/paper.pdf]]'),
+    );
+    expect(parseKnowledgeNoteContent(markdown, 'en').attachmentPaths).toEqual([
+      vaultPath('Raw/Attachments/figure.png'),
+      vaultPath('Raw/Attachments/paper.pdf'),
+    ]);
+  });
+
+  it('round trips every generated technical section in order', () => {
+    const markdown = serializeKnowledgeNoteContent({
+      attachmentPaths: [vaultPath('Raw/Attachments/paper.pdf')],
+      coreKnowledge: [
+        { explanationMarkdown: 'Question and evidence.', title: 'Research question' },
+        { explanationMarkdown: 'Sampling and analysis.', title: 'Data and methods' },
+        { explanationMarkdown: 'Findings and limits.', title: 'Results and limitations' },
+      ],
+      imagePaths: [],
+      outputLanguage: 'en',
+      personalNoteMarkdown: '',
+      sourceURL: 'selfgrow:text:fixture',
+      summaryMarkdown: 'A concise paper summary.',
+      title: 'Fixture paper',
+    });
+
+    expect(parseKnowledgeNoteContent(markdown, 'en').coreKnowledge).toHaveLength(3);
+    expect(markdown.indexOf('### Research question')).toBeLessThan(
+      markdown.indexOf('### Data and methods'),
+    );
+    expect(markdown.indexOf('### Data and methods')).toBeLessThan(
+      markdown.indexOf('### Results and limitations'),
     );
   });
 });

@@ -88,6 +88,52 @@ const PREFERENCE_PROFILE: PreferenceProfile = {
 };
 
 describe('RawEvidenceGenerator', () => {
+  it('summarizes an authorized academic document into ordered technical sections', async () => {
+    const http = new FixtureHTTPTransport([
+      chatRoute(
+        JSON.stringify({
+          category: 'Experience',
+          githubQueries: [],
+          preview: '研究分析全球植物菌根性状的环境调节机制，并比较气候与土壤因素对不同性状的影响。',
+          title: '全球植物菌根性状研究',
+        }),
+        JSON.stringify({
+          sections: [
+            {
+              details: '研究检验全球尺度环境条件如何调节植物菌根类型与依赖状态。',
+              title: '研究问题',
+            },
+            {
+              details: '研究整合物种分布、系统发育、气候与土壤数据，并建立比较模型。',
+              title: '数据与方法',
+            },
+            {
+              details: '结果揭示不同环境因子对菌根性状具有差异化影响，并说明解释边界。',
+              title: '结果与限制',
+            },
+          ],
+        }),
+      ),
+    ]);
+
+    const result = await generator(http, null).generate(
+      {
+        ...CONTENT,
+        documentKind: 'academic_paper',
+        route: 'local_document',
+      },
+      'zh-CN',
+    );
+
+    expect(result.coreKnowledge.map((section) => section.title)).toEqual([
+      '研究问题',
+      '数据与方法',
+      '结果与限制',
+    ]);
+    expect(result.coreKnowledge[0]?.explanationMarkdown).not.toBe(CONTENT.body);
+    expect(http.calls).toHaveLength(2);
+  });
+
   it('prepares a local preview and preserves the complete Markdown body without AI', async () => {
     const result = await new RawEvidenceGenerator().generate(CONTENT, 'en');
 
