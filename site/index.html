@@ -20,7 +20,6 @@
         --green: #236451;
         --green-light: #dfece5;
         --violet: #6456a8;
-        --shadow: 0 24px 70px rgba(29, 50, 42, 0.1);
       }
 
       * {
@@ -33,9 +32,8 @@
 
       body {
         margin: 0;
-        background:
-          radial-gradient(circle at 85% 0%, rgba(100, 86, 168, 0.1), transparent 28rem),
-          var(--paper);
+        overflow-x: hidden;
+        background: var(--paper);
         color: var(--ink);
         font-family:
           Inter,
@@ -159,6 +157,7 @@
       h1 {
         max-width: 720px;
         margin-bottom: 1.5rem;
+        overflow-wrap: anywhere;
         font-family: Georgia, 'Noto Serif SC', serif;
         font-size: clamp(3.2rem, 7.2vw, 6.4rem);
         font-weight: 500;
@@ -212,15 +211,7 @@
 
       .demo {
         position: relative;
-        min-height: 490px;
-      }
-
-      .demo::before {
-        position: absolute;
-        inset: 8% 0 0 8%;
-        border-radius: 50%;
-        background: rgba(35, 100, 81, 0.12);
-        content: '';
+        min-height: 450px;
       }
 
       .app-window {
@@ -229,10 +220,9 @@
         width: min(100%, 450px);
         margin: 0 auto;
         border: 1px solid rgba(24, 33, 29, 0.14);
-        border-radius: 24px;
+        border-radius: 18px;
         background: var(--surface);
-        box-shadow: var(--shadow);
-        transform: rotate(1.5deg);
+        box-shadow: 0 16px 45px rgba(29, 50, 42, 0.08);
       }
 
       .window-bar {
@@ -298,7 +288,7 @@
 
       .card {
         display: grid;
-        grid-template-columns: 42px 1fr auto;
+        grid-template-columns: 42px minmax(0, 1fr) auto;
         gap: 0.9rem;
         align-items: center;
         margin-top: 0.7rem;
@@ -391,6 +381,398 @@
         margin: 0;
         align-self: end;
         color: var(--muted);
+      }
+
+      .workflow-scenes {
+        display: grid;
+        gap: clamp(4rem, 9vw, 7rem);
+        margin-top: clamp(4rem, 8vw, 6rem);
+      }
+
+      .scene {
+        display: grid;
+        grid-template-columns: minmax(180px, 0.34fr) minmax(0, 1fr);
+        gap: clamp(2rem, 6vw, 5rem);
+        align-items: start;
+      }
+
+      .hero > *,
+      .scene > *,
+      .product-shot,
+      .obsidian-frame,
+      .frame-body,
+      .raw-card,
+      .proposal {
+        min-width: 0;
+      }
+
+      .scene-copy {
+        padding-top: 1rem;
+      }
+
+      .scene-index {
+        display: block;
+        margin-bottom: 1.5rem;
+        color: var(--green);
+        font-family: Georgia, serif;
+        font-size: 1.8rem;
+      }
+
+      .scene-copy h3 {
+        margin-bottom: 0.8rem;
+        font-family: Georgia, 'Noto Serif SC', serif;
+        font-size: clamp(1.8rem, 3vw, 2.7rem);
+        font-weight: 500;
+        letter-spacing: -0.04em;
+        line-height: 1.12;
+      }
+
+      .scene-copy p {
+        color: var(--muted);
+      }
+
+      .product-shot {
+        margin: 0;
+        padding: 12px;
+        border: 1px solid #d1d3d0;
+        border-radius: 20px;
+        background: #e8e8e5;
+      }
+
+      .product-shot figcaption {
+        padding: 0.65rem 0.35rem 0.15rem;
+        color: #6d716f;
+        font-size: 0.75rem;
+        text-align: center;
+      }
+
+      .obsidian-frame {
+        overflow: hidden;
+        border: 1px solid #ced1ce;
+        border-radius: 12px;
+        background: #fff;
+        color: #242424;
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei',
+          sans-serif;
+        line-height: 1.45;
+      }
+
+      .frame-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 42px;
+        padding: 0 14px;
+        border-bottom: 1px solid #dedfdd;
+        background: #f1f1ef;
+        color: #747775;
+        font-size: 0.72rem;
+      }
+
+      .frame-bar span:last-child {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .frame-dots {
+        letter-spacing: 0.22rem;
+      }
+
+      .frame-body {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: clamp(18px, 4vw, 30px);
+      }
+
+      .sg-title {
+        margin: 18px 0 4px;
+        font-size: 1.22rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      .sg-subtitle {
+        margin-bottom: 18px;
+        color: #747775;
+        font-size: 0.78rem;
+      }
+
+      .sg-nav {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        border-bottom: 1px solid #dedfdd;
+      }
+
+      .sg-nav span {
+        min-height: 42px;
+        padding: 12px;
+        color: #777a78;
+        font-size: 0.78rem;
+        text-align: center;
+      }
+
+      .sg-nav .active {
+        border-bottom: 2px solid #6c59b3;
+        color: #27242e;
+        font-weight: 700;
+      }
+
+      .capture-box {
+        display: grid;
+        gap: 13px;
+        padding: 18px;
+        border: 1px solid #dedfdd;
+        border-radius: 12px;
+        background: #f7f7f5;
+      }
+
+      .field-row {
+        display: grid;
+        grid-template-columns: 1fr 0.72fr;
+        gap: 12px;
+      }
+
+      .fake-field {
+        display: grid;
+        gap: 6px;
+      }
+
+      .fake-field > span {
+        font-size: 0.7rem;
+        font-weight: 650;
+      }
+
+      .fake-input {
+        min-height: 40px;
+        overflow: hidden;
+        padding: 10px 12px;
+        border: 1px solid #d5d7d4;
+        border-radius: 10px;
+        background: white;
+        color: #313432;
+        font-size: 0.76rem;
+        text-overflow: ellipsis;
+      }
+
+      .fake-input.textarea {
+        min-height: 72px;
+        color: #555957;
+      }
+
+      .attachment-row,
+      .meta-row,
+      .filter-tabs,
+      .proposal-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .attachment {
+        padding: 6px 9px;
+        border: 1px solid #d5d7d4;
+        border-radius: 8px;
+        background: white;
+        color: #595d5a;
+        font-size: 0.68rem;
+      }
+
+      .sg-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 40px;
+        padding: 8px 13px;
+        border: 1px solid #cbc8d6;
+        border-radius: 10px;
+        background: white;
+        color: #5e4da3;
+        font-size: 0.72rem;
+        font-weight: 700;
+      }
+
+      .sg-button.primary {
+        margin-left: auto;
+        border-color: #6c59b3;
+        background: #6c59b3;
+        color: white;
+      }
+
+      .review-tools {
+        display: grid;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .filter-select {
+        padding: 10px 12px;
+        border: 1px solid #d5d7d4;
+        border-radius: 10px;
+        background: #f7f7f5;
+        color: #383b39;
+        font-size: 0.74rem;
+      }
+
+      .filter-tabs {
+        flex-wrap: nowrap;
+        overflow: hidden;
+        border-bottom: 1px solid #dedfdd;
+      }
+
+      .filter-tabs span {
+        padding: 10px 8px;
+        color: #777a78;
+        font-size: 0.69rem;
+        white-space: nowrap;
+      }
+
+      .filter-tabs .active {
+        border-bottom: 2px solid #6c59b3;
+        color: #5e4da3;
+        font-weight: 700;
+      }
+
+      .raw-card {
+        padding: 16px;
+        border: 1px solid #d8dad7;
+        border-radius: 12px;
+        background: #f8f8f6;
+      }
+
+      .raw-card + .raw-card {
+        margin-top: 10px;
+      }
+
+      .raw-card-head {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: start;
+        justify-content: space-between;
+      }
+
+      .raw-card h4 {
+        margin: 0;
+        font-size: 0.9rem;
+      }
+
+      .raw-card p {
+        display: -webkit-box;
+        margin: 10px 0;
+        overflow: hidden;
+        color: #565a57;
+        font-size: 0.74rem;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+      }
+
+      .score {
+        color: #5e4da3;
+        font-size: 0.7rem;
+        font-weight: 750;
+        white-space: nowrap;
+      }
+
+      .tag,
+      .state-pill {
+        padding: 3px 7px;
+        border: 1px solid #d8dad7;
+        border-radius: 6px;
+        color: #656966;
+        font-size: 0.62rem;
+      }
+
+      .state-pill {
+        border: 0;
+        background: #eeeaf8;
+        color: #5e4da3;
+        font-weight: 700;
+      }
+
+      .meta-row {
+        color: #777a78;
+        font-size: 0.63rem;
+      }
+
+      .distill-grid {
+        display: grid;
+        grid-template-columns: 0.8fr 1.2fr;
+        min-height: 390px;
+      }
+
+      .raw-list {
+        padding: 18px;
+        border-right: 1px solid #dedfdd;
+        background: #f7f7f5;
+      }
+
+      .raw-list h4,
+      .proposal h4 {
+        margin: 0 0 14px;
+        font-size: 0.82rem;
+      }
+
+      .raw-list-item {
+        padding: 10px;
+        border: 1px solid #d8dad7;
+        border-radius: 9px;
+        background: white;
+        font-size: 0.7rem;
+      }
+
+      .raw-list-item + .raw-list-item {
+        margin-top: 8px;
+      }
+
+      .raw-list-item.selected {
+        border-color: #6c59b3;
+        box-shadow: inset 3px 0 #6c59b3;
+      }
+
+      .proposal {
+        padding: 20px;
+      }
+
+      .chat-line {
+        margin-bottom: 14px;
+        padding: 12px;
+        border: 1px solid #dedfdd;
+        border-radius: 10px;
+        background: #fafaf8;
+        color: #4f5350;
+        font-size: 0.7rem;
+      }
+
+      .proposal-list {
+        margin: 0 0 16px;
+        padding: 0;
+        list-style: none;
+      }
+
+      .proposal-list li {
+        display: grid;
+        grid-template-columns: 64px 1fr;
+        gap: 8px;
+        padding: 8px 0;
+        border-bottom: 1px solid #ececea;
+        font-size: 0.68rem;
+      }
+
+      .proposal-list strong {
+        color: #5e4da3;
+      }
+
+      .approval {
+        flex: 1;
+        min-height: 40px;
+        padding: 10px;
+        border: 1px solid #d5d7d4;
+        border-radius: 10px;
+        color: #686c69;
+        font-size: 0.7rem;
       }
 
       .steps,
@@ -527,7 +909,8 @@
 
         .hero,
         .section-head,
-        .privacy {
+        .privacy,
+        .scene {
           grid-template-columns: 1fr;
         }
 
@@ -554,6 +937,37 @@
         .steps,
         .feature-grid {
           grid-template-columns: 1fr;
+        }
+
+        .field-row,
+        .distill-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .product-shot {
+          padding: 6px;
+        }
+
+        .frame-body {
+          padding: 16px;
+        }
+
+        .card {
+          grid-template-columns: 36px minmax(0, 1fr);
+        }
+
+        .card .status {
+          grid-column: 2;
+          justify-self: start;
+        }
+
+        .attachment-row .sg-button.primary {
+          margin-left: 0;
+        }
+
+        .raw-list {
+          border-right: 0;
+          border-bottom: 1px solid #dedfdd;
         }
 
         .step {
@@ -683,6 +1097,200 @@
               <span class="number">03</span>
               <h3>沉淀</h3>
               <p>先审阅 Wiki 方案；只有明确批准后，内容才会被写入并建立关系。</p>
+            </article>
+          </div>
+
+          <div class="workflow-scenes">
+            <article class="scene">
+              <div class="scene-copy">
+                <span class="scene-index">01 / 收集</span>
+                <h3>把任何资料放进同一个入口。</h3>
+                <p>
+                  标题、分类、链接、笔记和附件都在同一张表单里。SelfGrow
+                  会提示处理路线，但不会替你隐藏原始内容。
+                </p>
+              </div>
+              <figure class="product-shot">
+                <div
+                  class="obsidian-frame"
+                  role="img"
+                  aria-label="SelfGrow 收集界面，包含标题、分类、链接、笔记、附件和提交按钮"
+                >
+                  <div class="frame-bar">
+                    <span class="frame-dots">● ● ●</span>
+                    <span>Obsidian · SelfGrow Queue</span>
+                  </div>
+                  <div class="frame-body">
+                    <strong>SelfGrow</strong>
+                    <div class="sg-nav">
+                      <span class="active">收集</span>
+                      <span>筛选</span>
+                    </div>
+                    <h3 class="sg-title">收集内容</h3>
+                    <p class="sg-subtitle">添加链接、文字、图片或本地文档。</p>
+                    <div class="capture-box">
+                      <div class="field-row">
+                        <div class="fake-field">
+                          <span>标题</span>
+                          <div class="fake-input">Local-first 软件设计</div>
+                        </div>
+                        <div class="fake-field">
+                          <span>分类</span>
+                          <div class="fake-input">Project　⌄</div>
+                        </div>
+                      </div>
+                      <div class="fake-field">
+                        <span>链接</span>
+                        <div class="fake-input">https://www.inkandswitch.com/local-first/</div>
+                      </div>
+                      <div class="fake-field">
+                        <span>我的笔记</span>
+                        <div class="fake-input textarea">
+                          重点关注离线可用、数据所有权，以及不同设备之间如何同步。
+                        </div>
+                      </div>
+                      <div class="attachment-row">
+                        <span class="attachment">＋ 添加文件</span>
+                        <span class="attachment">local-first.pdf　×</span>
+                        <span class="sg-button primary">收集</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <figcaption>界面演示使用示例资料，不包含真实 Vault 数据。</figcaption>
+              </figure>
+            </article>
+
+            <article class="scene">
+              <div class="scene-copy">
+                <span class="scene-index">02 / 筛选</span>
+                <h3>看完证据，再决定是否保留。</h3>
+                <p>
+                  按文件夹与状态筛选。每张 Raw
+                  卡片展示两行摘要、来源、时间、推荐度和当前状态，主操作始终只有一个。
+                </p>
+              </div>
+              <figure class="product-shot">
+                <div
+                  class="obsidian-frame"
+                  role="img"
+                  aria-label="SelfGrow 筛选界面，包含文件夹筛选、状态标签和两张 Raw 卡片"
+                >
+                  <div class="frame-bar">
+                    <span class="frame-dots">● ● ●</span>
+                    <span>Obsidian · SelfGrow Review</span>
+                  </div>
+                  <div class="frame-body">
+                    <strong>SelfGrow</strong>
+                    <div class="sg-nav">
+                      <span>收集</span>
+                      <span class="active">筛选</span>
+                    </div>
+                    <h3 class="sg-title">筛选 Raw</h3>
+                    <p class="sg-subtitle">先阅读，再选择值得长期沉淀的内容。</p>
+                    <div class="review-tools">
+                      <div class="filter-select">Raw 文件夹　全部文件夹　　　　　　　　　⌄</div>
+                      <div class="filter-tabs">
+                        <span class="active">未选择　4</span>
+                        <span>待沉淀　2</span>
+                        <span>更新　1</span>
+                        <span>已沉淀　8</span>
+                      </div>
+                    </div>
+                    <article class="raw-card">
+                      <div class="raw-card-head">
+                        <h4>Local-first 软件设计的七条原则</h4>
+                        <span class="score">推荐度 92 · 很高</span>
+                      </div>
+                      <p>
+                        Local-first
+                        软件把本地设备上的副本视为主要数据源，让用户在离线状态下仍然可以完整工作……
+                      </p>
+                      <div class="attachment-row">
+                        <span class="tag">命中兴趣：知识管理</span>
+                        <span class="tag">协议命中：本地优先</span>
+                        <span class="sg-button primary">选择沉淀</span>
+                      </div>
+                      <div class="meta-row">
+                        <span class="state-pill">○ 未选择</span>
+                        <span>inkandswitch.com</span>
+                        <span>9月5日 10:42</span>
+                      </div>
+                    </article>
+                    <article class="raw-card">
+                      <div class="raw-card-head">
+                        <h4>项目文档的信息架构</h4>
+                        <span class="score">推荐度 81 · 高</span>
+                      </div>
+                      <p>将入口文档、使用指南与实现细节分层，降低新用户第一次理解项目的成本……</p>
+                      <div class="meta-row">
+                        <span class="state-pill">✓ 已选择，等待智能体</span>
+                        <span>Markdown</span>
+                        <span>9月4日 18:20</span>
+                      </div>
+                    </article>
+                  </div>
+                </div>
+                <figcaption>对应插件当前的文件夹、状态标签、推荐度与 Raw 卡片结构。</figcaption>
+              </figure>
+            </article>
+
+            <article class="scene">
+              <div class="scene-copy">
+                <span class="scene-index">03 / 沉淀</span>
+                <h3>先看方案，批准后才写入。</h3>
+                <p>
+                  Agent 先只读发现待沉淀卡片，结合 Raw 原文、图片、你的笔记和现有 Wiki
+                  生成方案。你明确批准之前，不会修改 Vault。
+                </p>
+              </div>
+              <figure class="product-shot">
+                <div
+                  class="obsidian-frame"
+                  role="img"
+                  aria-label="SelfGrow 沉淀界面，左侧是待沉淀 Raw 卡片，右侧是 Agent 生成的沉淀方案和批准输入框"
+                >
+                  <div class="frame-bar">
+                    <span class="frame-dots">● ● ●</span>
+                    <span>Codex · selfgrow-wiki</span>
+                  </div>
+                  <div class="distill-grid">
+                    <aside class="raw-list">
+                      <h4>待沉淀 · 2</h4>
+                      <div class="raw-list-item selected">
+                        <strong>Local-first 软件设计</strong><br />
+                        <span>Project · 推荐度 92</span>
+                      </div>
+                      <div class="raw-list-item">
+                        <strong>项目文档的信息架构</strong><br />
+                        <span>Skill · 推荐度 81</span>
+                      </div>
+                    </aside>
+                    <div class="proposal">
+                      <h4>沉淀方案</h4>
+                      <div class="chat-line">
+                        已完成只读发现。我读取了 2 张 Raw 卡片、相关附件、“我的笔记”和 3 个现有 Wiki
+                        页面。
+                      </div>
+                      <ul class="proposal-list">
+                        <li><strong>新建</strong><span>Local-first 知识系统.md</span></li>
+                        <li>
+                          <strong>更新</strong><span>个人知识管理.md：补充数据所有权原则</span>
+                        </li>
+                        <li><strong>关系</strong><span>连接“渐进式沉淀”与“离线优先”</span></li>
+                        <li><strong>保留</strong><span>Raw 原文和附件不改写、不删除</span></li>
+                      </ul>
+                      <div class="proposal-actions">
+                        <div class="approval">批准写入</div>
+                        <span class="sg-button primary">发送</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <figcaption>
+                  沉淀由 selfgrow-wiki Agent Skill 执行，展示的是提案与批准边界。
+                </figcaption>
+              </figure>
             </article>
           </div>
         </section>
