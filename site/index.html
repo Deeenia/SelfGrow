@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="SelfGrow 是一款本地优先的 Obsidian 知识收集、审核与 Wiki 沉淀插件。"
+    />
+    <meta name="theme-color" content="#f4f3ee" />
+    <title>SelfGrow — 让知识继续生长</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --paper: #f4f3ee;
+        --surface: #fbfaf6;
+        --ink: #18211d;
+        --muted: #68726d;
+        --line: #d9ddd7;
+        --green: #236451;
+        --green-light: #dfece5;
+        --violet: #6456a8;
+        --shadow: 0 24px 70px rgba(29, 50, 42, 0.1);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 85% 0%, rgba(100, 86, 168, 0.1), transparent 28rem),
+          var(--paper);
+        color: var(--ink);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          'PingFang SC',
+          'Microsoft YaHei',
+          sans-serif;
+        line-height: 1.65;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      .skip-link {
+        position: fixed;
+        top: 1rem;
+        left: 1rem;
+        z-index: 10;
+        padding: 0.6rem 0.9rem;
+        background: var(--ink);
+        color: white;
+        transform: translateY(-200%);
+      }
+
+      .skip-link:focus {
+        transform: none;
+      }
+
+      .shell {
+        width: min(1120px, calc(100% - 40px));
+        margin: 0 auto;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 78px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        text-decoration: none;
+        font-weight: 760;
+        letter-spacing: -0.03em;
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border-radius: 11px;
+        background: var(--green);
+        color: white;
+        font-family: Georgia, serif;
+        font-size: 1.2rem;
+      }
+
+      nav {
+        display: flex;
+        align-items: center;
+        gap: 1.4rem;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      nav a {
+        text-decoration: none;
+      }
+
+      nav a:hover,
+      nav a:focus-visible {
+        color: var(--green);
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1.08fr 0.92fr;
+        gap: clamp(3rem, 7vw, 7rem);
+        align-items: center;
+        padding: clamp(5rem, 11vw, 9rem) 0 6rem;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.55rem;
+        margin: 0 0 1.25rem;
+        color: var(--green);
+        font-size: 0.78rem;
+        font-weight: 750;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+        content: '';
+        box-shadow: 0 0 0 5px var(--green-light);
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1 {
+        max-width: 720px;
+        margin-bottom: 1.5rem;
+        font-family: Georgia, 'Noto Serif SC', serif;
+        font-size: clamp(3.2rem, 7.2vw, 6.4rem);
+        font-weight: 500;
+        letter-spacing: -0.065em;
+        line-height: 0.98;
+      }
+
+      h1 em {
+        color: var(--green);
+        font-style: normal;
+      }
+
+      .hero-copy {
+        max-width: 620px;
+        margin-bottom: 2rem;
+        color: var(--muted);
+        font-size: clamp(1.05rem, 2vw, 1.22rem);
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.8rem;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 48px;
+        padding: 0.75rem 1.2rem;
+        border: 1px solid var(--ink);
+        border-radius: 999px;
+        text-decoration: none;
+        font-weight: 700;
+        transition:
+          transform 160ms ease,
+          box-shadow 160ms ease;
+      }
+
+      .button.primary {
+        background: var(--ink);
+        color: white;
+      }
+
+      .button:hover,
+      .button:focus-visible {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 22px rgba(24, 33, 29, 0.14);
+      }
+
+      .demo {
+        position: relative;
+        min-height: 490px;
+      }
+
+      .demo::before {
+        position: absolute;
+        inset: 8% 0 0 8%;
+        border-radius: 50%;
+        background: rgba(35, 100, 81, 0.12);
+        content: '';
+      }
+
+      .app-window {
+        position: relative;
+        overflow: hidden;
+        width: min(100%, 450px);
+        margin: 0 auto;
+        border: 1px solid rgba(24, 33, 29, 0.14);
+        border-radius: 24px;
+        background: var(--surface);
+        box-shadow: var(--shadow);
+        transform: rotate(1.5deg);
+      }
+
+      .window-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem 1.15rem;
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.8rem;
+      }
+
+      .dots,
+      .dots::before,
+      .dots::after {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #b8bdb8;
+      }
+
+      .dots {
+        position: relative;
+        margin-left: 18px;
+      }
+
+      .dots::before,
+      .dots::after {
+        position: absolute;
+        top: 0;
+        content: '';
+      }
+
+      .dots::before {
+        left: -18px;
+      }
+
+      .dots::after {
+        left: 18px;
+      }
+
+      .queue {
+        padding: 1.2rem;
+      }
+
+      .queue-head {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+      }
+
+      .queue-head h2 {
+        margin-bottom: 0;
+        font-size: 1.35rem;
+        letter-spacing: -0.03em;
+      }
+
+      .queue-head span {
+        color: var(--muted);
+        font-size: 0.78rem;
+      }
+
+      .card {
+        display: grid;
+        grid-template-columns: 42px 1fr auto;
+        gap: 0.9rem;
+        align-items: center;
+        margin-top: 0.7rem;
+        padding: 1rem;
+        border: 1px solid var(--line);
+        border-radius: 15px;
+        background: white;
+      }
+
+      .file-type {
+        display: grid;
+        width: 42px;
+        height: 42px;
+        place-items: center;
+        border-radius: 12px;
+        background: var(--green-light);
+        color: var(--green);
+        font-size: 0.7rem;
+        font-weight: 800;
+      }
+
+      .card:nth-child(3) .file-type {
+        background: #ebe7f7;
+        color: var(--violet);
+      }
+
+      .card strong,
+      .card small {
+        display: block;
+      }
+
+      .card strong {
+        font-size: 0.88rem;
+      }
+
+      .card small {
+        margin-top: 0.15rem;
+        color: var(--muted);
+      }
+
+      .status {
+        padding: 0.25rem 0.55rem;
+        border-radius: 999px;
+        background: #edf4ef;
+        color: var(--green);
+        font-size: 0.7rem;
+      }
+
+      .principles {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        border-block: 1px solid var(--line);
+      }
+
+      .principles div {
+        padding: 1.35rem 1rem;
+        text-align: center;
+        font-size: 0.9rem;
+        font-weight: 700;
+      }
+
+      .principles div + div {
+        border-left: 1px solid var(--line);
+      }
+
+      section {
+        padding: clamp(5rem, 10vw, 8rem) 0;
+      }
+
+      .section-head {
+        display: grid;
+        grid-template-columns: 0.8fr 1.2fr;
+        gap: 2rem;
+        margin-bottom: 3rem;
+      }
+
+      .section-head h2,
+      .download h2,
+      .privacy h2 {
+        margin-bottom: 0;
+        font-family: Georgia, 'Noto Serif SC', serif;
+        font-size: clamp(2.25rem, 4.5vw, 4.2rem);
+        font-weight: 500;
+        letter-spacing: -0.05em;
+        line-height: 1.08;
+      }
+
+      .section-head p {
+        max-width: 620px;
+        margin: 0;
+        align-self: end;
+        color: var(--muted);
+      }
+
+      .steps,
+      .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+      }
+
+      .step,
+      .feature {
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: rgba(251, 250, 246, 0.7);
+      }
+
+      .step {
+        min-height: 280px;
+        padding: 1.5rem;
+      }
+
+      .number {
+        display: block;
+        margin-bottom: 4rem;
+        color: var(--green);
+        font-family: Georgia, serif;
+        font-size: 2.3rem;
+      }
+
+      .step h3,
+      .feature h3 {
+        margin-bottom: 0.6rem;
+        font-size: 1.15rem;
+      }
+
+      .step p,
+      .feature p {
+        margin-bottom: 0;
+        color: var(--muted);
+        font-size: 0.93rem;
+      }
+
+      .feature-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .feature {
+        min-height: 190px;
+        padding: 1.5rem;
+      }
+
+      .feature code {
+        display: inline-block;
+        margin-bottom: 1.5rem;
+        color: var(--violet);
+        font-size: 0.75rem;
+      }
+
+      .privacy {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: clamp(2rem, 7vw, 6rem);
+        padding: clamp(2rem, 6vw, 4.5rem);
+        border-radius: 30px;
+        background: var(--ink);
+        color: white;
+      }
+
+      .privacy h2 {
+        margin-bottom: 1rem;
+      }
+
+      .privacy p,
+      .privacy li {
+        color: #bfc9c4;
+      }
+
+      .privacy ul {
+        margin: 0;
+        padding-left: 1.2rem;
+      }
+
+      .privacy li + li {
+        margin-top: 0.8rem;
+      }
+
+      .download {
+        text-align: center;
+      }
+
+      .download h2 {
+        max-width: 760px;
+        margin: 0 auto 1.2rem;
+        font-size: clamp(2.6rem, 5vw, 4.8rem);
+      }
+
+      .download > p:not(.eyebrow) {
+        max-width: 650px;
+        margin: 0 auto 2rem;
+        color: var(--muted);
+      }
+
+      .download .actions {
+        justify-content: center;
+      }
+
+      footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 2rem 0 3rem;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.86rem;
+      }
+
+      footer p {
+        margin: 0;
+      }
+
+      footer a + a {
+        margin-left: 1rem;
+      }
+
+      :focus-visible {
+        outline: 3px solid rgba(100, 86, 168, 0.45);
+        outline-offset: 4px;
+      }
+
+      @media (max-width: 780px) {
+        nav a:not(:last-child) {
+          display: none;
+        }
+
+        .hero,
+        .section-head,
+        .privacy {
+          grid-template-columns: 1fr;
+        }
+
+        .hero {
+          padding-top: 4rem;
+        }
+
+        .demo {
+          min-height: auto;
+        }
+
+        .principles {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .principles div:nth-child(3) {
+          border-left: 0;
+        }
+
+        .principles div:nth-child(n + 3) {
+          border-top: 1px solid var(--line);
+        }
+
+        .steps,
+        .feature-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .step {
+          min-height: auto;
+        }
+
+        .number {
+          margin-bottom: 2rem;
+        }
+
+        footer {
+          flex-direction: column;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+
+        .button {
+          transition: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">跳到正文</a>
+    <div class="shell">
+      <header>
+        <a class="brand" href="#top" aria-label="SelfGrow 首页">
+          <span class="brand-mark" aria-hidden="true">S</span>
+          <span>SelfGrow</span>
+        </a>
+        <nav aria-label="主导航">
+          <a href="#workflow">工作方式</a>
+          <a href="#features">功能</a>
+          <a href="#privacy">隐私</a>
+          <a href="https://github.com/Deeenia/SelfGrow">GitHub ↗</a>
+        </nav>
+      </header>
+
+      <main id="main">
+        <div class="hero" id="top">
+          <div>
+            <p class="eyebrow">Local-first Obsidian plugin</p>
+            <h1>让零散资料，<em>长成知识。</em></h1>
+            <p class="hero-copy">
+              收集链接、文字、图片、PDF、Markdown 和 GitHub 仓库。先在 Raw
+              中完整保留与审核，再由你决定什么值得进入 Wiki。
+            </p>
+            <div class="actions">
+              <a class="button primary" href="https://github.com/Deeenia/SelfGrow/releases/latest"
+                >下载 0.1.0</a
+              >
+              <a class="button" href="https://github.com/Deeenia/SelfGrow">查看源代码</a>
+            </div>
+          </div>
+
+          <div class="demo" aria-label="SelfGrow Raw 审核界面示意图">
+            <div class="app-window">
+              <div class="window-bar">
+                <span class="dots" aria-hidden="true"></span>
+                <span>SelfGrow · Knowledge review</span>
+              </div>
+              <div class="queue">
+                <div class="queue-head">
+                  <h2>待审核</h2>
+                  <span>3 张 Raw 卡片</span>
+                </div>
+                <article class="card">
+                  <span class="file-type">PDF</span>
+                  <div>
+                    <strong>知识管理的渐进式沉淀</strong>
+                    <small>文档 · 已提取文本</small>
+                  </div>
+                  <span class="status">待审核</span>
+                </article>
+                <article class="card">
+                  <span class="file-type">URL</span>
+                  <div>
+                    <strong>Local-first software</strong>
+                    <small>链接 · 来源完整</small>
+                  </div>
+                  <span class="status">推荐</span>
+                </article>
+                <article class="card">
+                  <span class="file-type">MD</span>
+                  <div>
+                    <strong>项目复盘与下一步</strong>
+                    <small>Markdown · 本地附件</small>
+                  </div>
+                  <span class="status">已选择</span>
+                </article>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="principles" aria-label="产品原则">
+          <div>本地优先</div>
+          <div>审核后沉淀</div>
+          <div>桌面与移动端</div>
+          <div>无客户端遥测</div>
+        </div>
+
+        <section id="workflow">
+          <div class="section-head">
+            <h2>三步，而不是另一个收件箱。</h2>
+            <p>
+              SelfGrow 把收集与知识分开：原始证据先完整留下，判断权始终在你手中，Wiki
+              只接收真正值得长期保留的内容。
+            </p>
+          </div>
+          <div class="steps">
+            <article class="step">
+              <span class="number">01</span>
+              <h3>收集</h3>
+              <p>把链接、文字、图片和本地文档送进统一队列，不必先决定分类。</p>
+            </article>
+            <article class="step">
+              <span class="number">02</span>
+              <h3>审核</h3>
+              <p>查看来源、附件、摘要与推荐分数，选择、分类，或直接删除。</p>
+            </article>
+            <article class="step">
+              <span class="number">03</span>
+              <h3>沉淀</h3>
+              <p>先审阅 Wiki 方案；只有明确批准后，内容才会被写入并建立关系。</p>
+            </article>
+          </div>
+        </section>
+
+        <section id="features">
+          <div class="section-head">
+            <h2>不同来源，同一条知识路径。</h2>
+            <p>从网页到本地文件，SelfGrow 尽量保留原貌，再提供可选的 AI 辅助理解。</p>
+          </div>
+          <div class="feature-grid">
+            <article class="feature">
+              <code>URL · TEXT · IMAGE</code>
+              <h3>随手收集</h3>
+              <p>保存网页、分享文本、图片和直接笔记，在移动端与桌面端保持一致。</p>
+            </article>
+            <article class="feature">
+              <code>PDF · MD · MARKDOWN</code>
+              <h3>本地文档</h3>
+              <p>读取 PDF 文本层和 Markdown 内容；未经授权，不会把文档正文发送给 AI。</p>
+            </article>
+            <article class="feature">
+              <code>GITHUB / OWNER / REPO</code>
+              <h3>仓库理解</h3>
+              <p>识别 GitHub 项目，保留 README 的结构、链接、图片、表格与代码块。</p>
+            </article>
+            <article class="feature">
+              <code>YOUR MODEL · YOUR KEY</code>
+              <h3>可选 AI</h3>
+              <p>连接 OpenAI、DeepSeek、Qwen、Kimi 或兼容接口；没有 API Key 也能完成本地收集。</p>
+            </article>
+          </div>
+        </section>
+
+        <section id="privacy">
+          <div class="privacy">
+            <div>
+              <p class="eyebrow">Privacy by default</p>
+              <h2>你的 Vault，仍然只属于你。</h2>
+              <p>
+                SelfGrow
+                没有自己的账号、服务器或客户端遥测。卡片、Wiki、附件、偏好和设置都保存在当前 Vault。
+              </p>
+            </div>
+            <ul>
+              <li>网络请求只在你主动使用相应功能时发生。</li>
+              <li>API Key 通过 Obsidian SecretStorage 引用。</li>
+              <li>不会发送浏览器 Cookie、平台密码、Vault 路径或无关笔记。</li>
+              <li>AI 文档总结和可选提取服务均有明确授权边界。</li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="download" id="download">
+          <p class="eyebrow">Open source · MIT</p>
+          <h2>从下一条值得保留的资料开始。</h2>
+          <p>
+            社区目录审核期间，可从 GitHub Release 手动安装。下载三个文件并放入 Vault
+            的插件目录即可。
+          </p>
+          <div class="actions">
+            <a class="button primary" href="https://github.com/Deeenia/SelfGrow/releases/latest"
+              >前往下载</a
+            >
+            <a class="button" href="https://github.com/Deeenia/SelfGrow/blob/main/README.zh-CN.md"
+              >阅读中文说明</a
+            >
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <p>SelfGrow · 让知识继续生长。</p>
+        <p>
+          <a href="https://github.com/Deeenia/SelfGrow">GitHub</a>
+          <a href="https://github.com/Deeenia/SelfGrow/blob/main/LICENSE">MIT License</a>
+        </p>
+      </footer>
+    </div>
+  </body>
+</html>

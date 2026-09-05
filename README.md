@@ -1,5 +1,9 @@
 # SelfGrow
 
+English | [中文](README.zh-CN.md)
+
+[Website](https://deeenia.github.io/SelfGrow/) · [Download](https://github.com/Deeenia/SelfGrow/releases/latest) · [User guide](docs/user-guide.md)
+
 SelfGrow is a local-first Obsidian plugin that turns links, shared text, images, PDF documents, Markdown files, and GitHub repositories into reviewable Raw cards. You decide which cards are worth keeping before optionally distilling them into a linked Wiki.
 
 ## Features
