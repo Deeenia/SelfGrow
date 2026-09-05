@@ -1,7 +1,7 @@
 {
   "id": "selfgrow",
   "name": "SelfGrow",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "minAppVersion": "1.13.0",
   "description": "Capture links, text, images, PDF, and Markdown files as local Raw cards for review and Wiki distillation.",
   "author": "Denia",

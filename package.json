@@ -1,6 +1,6 @@
 {
   "name": "selfgrow",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A local-first Obsidian plugin for capturing and reviewing knowledge material.",
   "private": true,
   "main": "main.js",
