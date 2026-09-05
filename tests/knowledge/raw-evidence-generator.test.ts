@@ -424,6 +424,31 @@ describe('RawEvidenceGenerator', () => {
     });
   });
 
+  it('accepts a multiword English project name in a Chinese DeepSeek card', async () => {
+    const http = new FixtureHTTPTransport([
+      chatRoute(
+        JSON.stringify({
+          category: 'Project',
+          githubQueries: ['earendil-works/pi'],
+          preview:
+            '提供可扩展的编码代理运行时、多模型接口与命令行工具，并支持工具调用、状态管理和容器化隔离。',
+          title: 'Pi Agent Harness',
+        }),
+      ),
+    ]);
+
+    const result = await generator(http, null, {
+      model: 'deepseek-v4-flash',
+      preset: 'deepseek',
+    }).generate(CONTENT, 'zh-CN');
+
+    expect(result).toMatchObject({
+      recognitionSource: 'ai',
+      title: 'Pi Agent Harness',
+    });
+    expect(http.calls).toHaveLength(1);
+  });
+
   it('lets the model score the complete natural-language profile without sending IDs or source records', async () => {
     const http = new FixtureHTTPTransport([
       chatRoute(

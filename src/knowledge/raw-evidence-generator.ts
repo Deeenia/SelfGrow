@@ -880,9 +880,12 @@ function cardLanguageMatches(card: AIRecognitionCard, language: Language): boole
   if (/(?:[&/:：-]|\b(?:and|or|with|for|to|of|the|a|an))$/iu.test(card.title)) return false;
   if (language === 'zh-CN') {
     const singleTokenName = /^[A-Za-z0-9][A-Za-z0-9_.+-]{1,47}$/u.test(card.title);
+    const multiwordProjectName =
+      (card.category === 'Project' || card.category === 'Skill') &&
+      /^[A-Za-z0-9][A-Za-z0-9 ._+&/-]{1,47}$/u.test(card.title);
     return (
       /\p{Script=Han}/u.test(card.preview) &&
-      (/\p{Script=Han}/u.test(card.title) || singleTokenName)
+      (/\p{Script=Han}/u.test(card.title) || singleTokenName || multiwordProjectName)
     );
   }
   return /[A-Za-z]/u.test(card.preview);
