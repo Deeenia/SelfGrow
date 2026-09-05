@@ -1,0 +1,4 @@
+interface:
+  display_name: "SelfGrow Minimal UI"
+  short_description: "Design quiet, mobile-first SelfGrow interfaces"
+  default_prompt: "Use $selfgrow-minimal-ui to simplify this SelfGrow interface."

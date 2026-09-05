@@ -1,0 +1,44 @@
+{
+  "name": "selfgrow",
+  "version": "0.1.0",
+  "description": "A local-first Obsidian plugin for capturing and reviewing knowledge material.",
+  "private": true,
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "format": "prettier --write src tests package.json manifest.json versions.json tsconfig.json esbuild.config.mjs eslint.config.mts README.md styles.css",
+    "format:check": "prettier --check src tests package.json manifest.json versions.json tsconfig.json esbuild.config.mjs eslint.config.mts README.md styles.css",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests/tsconfig.json",
+    "test": "vitest run",
+    "build": "npm run typecheck && node esbuild.config.mjs production",
+    "check": "npm run format:check && npm run lint && npm run test && npm run build"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "npm@11.6.2",
+  "license": "MIT",
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/jsdom": "28.0.3",
+    "@types/node": "26.2.0",
+    "esbuild": "0.28.2",
+    "eslint": "10.8.1",
+    "eslint-plugin-obsidianmd": "0.4.1",
+    "globals": "17.9.0",
+    "jiti": "2.7.0",
+    "jsdom": "29.0.0",
+    "obsidian": "1.13.1",
+    "prettier": "3.9.6",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.66.0",
+    "vitest": "4.1.10"
+  },
+  "dependencies": {
+    "@mozilla/readability": "0.6.0",
+    "mdast-util-from-markdown": "2.0.3",
+    "zod": "4.4.3"
+  }
+}
