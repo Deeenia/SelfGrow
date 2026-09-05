@@ -10,8 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      id-token: write
-      attestations: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -23,13 +21,6 @@ jobs:
       - name: Verify release version
         shell: bash
         run: test "${GITHUB_REF_NAME}" = "$(node -p "require('./manifest.json').version")"
-      - name: Generate artifact attestation
-        uses: actions/attest@v4
-        with:
-          subject-path: |
-            main.js
-            manifest.json
-            styles.css
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
